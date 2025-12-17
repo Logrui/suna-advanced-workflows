@@ -1,6 +1,21 @@
-# Running LangFlow with Docker
+# Langflow Simple/Starter Deployment
 
-This guide will help you get LangFlow up and running using Docker and Docker Compose.
+**Designed for:** Quick starts, testing, local development, and simple self-hosting.
+
+| Feature | Details |
+| :--- | :--- |
+| **Complexity** | 🟢 Low (2 services) |
+| **Architecture** | Monolithic (App + Database) |
+| **Networking** | Direct access on port `7860` |
+| **Intended Use** | Exploration, Proof of Concept, Personal Projects |
+
+> **Note:** For a robust production setup with SSL, monitoring, and async workers, see the `deploy` directory.
+
+## Overview
+
+This configuration runs Langflow with the absolute minimum requirements:
+*   **Langflow**: The main application.
+*   **Postgres**: The database for saving flows and user data.
 
 ## Prerequisites
 
@@ -15,16 +30,16 @@ This guide will help you get LangFlow up and running using Docker and Docker Com
    git clone https://github.com/langflow-ai/langflow.git
    ```
 
-2. Navigate to the `docker_example` directory:
+2. Navigate to the `simple_langflow` directory:
 
    ```sh
-   cd langflow/docker_example
+   cd langflow/simple_langflow
    ```
 
 3. Run the Docker Compose file:
 
    ```sh
-   docker compose up
+   docker compose up -d
    ```
 
 LangFlow will now be accessible at [http://localhost:7860/](http://localhost:7860/).

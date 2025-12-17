@@ -28,7 +28,7 @@ services:
 
   result_backend:
     ports:
-      - "6379:6379"
+      - "6389:6379"
 
   pgadmin:
     ports:
