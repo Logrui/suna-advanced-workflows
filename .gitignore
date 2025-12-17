@@ -294,3 +294,6 @@ data/user
 .docs/
 .portkit/
 *.code-workspace
+AGENTS.md
+GEMINI.md
+CLAUDE.md
