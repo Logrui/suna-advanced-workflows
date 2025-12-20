@@ -44,19 +44,23 @@ function ApiInterceptor() {
   useEffect(() => {
     const unregister = fetchIntercept.register({
       request: (url, config) => {
+        // Ensure config and headers exist to prevent crashes when fetch() is called with just a URL
+        const safeConfig = config || {};
+        safeConfig.headers = safeConfig.headers || {};
+
         const accessToken = customGetAccessToken();
 
         if (!isExternalURL(url)) {
-          if (accessToken && !isAuthorizedURL(config?.url)) {
-            config.headers["Authorization"] = `Bearer ${accessToken}`;
+          if (accessToken && !isAuthorizedURL(safeConfig?.url ?? url)) {
+            safeConfig.headers["Authorization"] = `Bearer ${accessToken}`;
           }
 
           for (const [key, value] of Object.entries(customHeaders)) {
-            config.headers[key] = value;
+            safeConfig.headers[key] = value;
           }
         }
 
-        return [url, config];
+        return [url, safeConfig];
       },
     });
 

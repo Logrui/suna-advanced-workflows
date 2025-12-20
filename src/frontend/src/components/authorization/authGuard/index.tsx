@@ -15,11 +15,6 @@ export const ProtectedRoute = ({ children }) => {
   const isAutoLoginEnv = IS_AUTO_LOGIN;
   const testMockAutoLogin = sessionStorage.getItem("testMockAutoLogin");
 
-  const shouldRedirect =
-    !isAuthenticated &&
-    autoLogin !== undefined &&
-    (!autoLogin || !isAutoLoginEnv);
-
   useEffect(() => {
     const envRefreshTime = LANGFLOW_ACCESS_TOKEN_EXPIRE_SECONDS_ENV;
     const automaticRefreshTime = LANGFLOW_ACCESS_TOKEN_EXPIRE_SECONDS;
@@ -39,10 +34,22 @@ export const ProtectedRoute = ({ children }) => {
     }
   }, [isAuthenticated]);
 
+  const hasTokenInUrl =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("token");
+
+  const shouldRedirect =
+    !isAuthenticated &&
+    !hasTokenInUrl &&
+    autoLogin !== undefined &&
+    autoLogin !== null &&
+    (!autoLogin || !isAutoLoginEnv);
+
+  const currentPath = window.location.pathname + window.location.search;
+  const isHomePath = currentPath === "/" || currentPath === "/flows";
+  const isLoginPage = currentPath.includes("/login");
+
   if (shouldRedirect || testMockAutoLogin) {
-    const currentPath = window.location.pathname;
-    const isHomePath = currentPath === "/" || currentPath === "/flows";
-    const isLoginPage = location.pathname.includes("login");
     return (
       <CustomNavigate
         to={

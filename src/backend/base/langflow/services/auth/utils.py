@@ -61,8 +61,13 @@ async def api_key_security(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Missing first superuser credentials",
                 )
+            
             if not query_param and not header_param:
-                if settings_service.auth_settings.skip_auth_auto_login:
+                # Check either the setting OR the raw environment variable
+                import os
+                env_skip_auth = os.getenv("LANGFLOW_SKIP_AUTH_AUTO_LOGIN", "false").lower() == "true"
+                
+                if settings_service.auth_settings.skip_auth_auto_login or env_skip_auth:
                     result = await get_user_by_username(db, settings_service.auth_settings.SUPERUSER)
                     logger.warning(AUTO_LOGIN_WARNING)
                     return UserRead.model_validate(result, from_attributes=True)
@@ -107,9 +112,12 @@ async def ws_api_key_security(
                     reason="Missing first superuser credentials",
                 )
             if not api_key:
-                if settings.auth_settings.skip_auth_auto_login:
+                # Check either the setting OR the raw environment variable
+                import os
+                env_skip_auth = os.getenv("LANGFLOW_SKIP_AUTH_AUTO_LOGIN", "false").lower() == "true"
+                
+                if settings.auth_settings.skip_auth_auto_login or env_skip_auth:
                     result = await get_user_by_username(db, settings.auth_settings.SUPERUSER)
-                    logger.warning(AUTO_LOGIN_WARNING)
                 else:
                     raise WebSocketException(
                         code=status.WS_1008_POLICY_VIOLATION,

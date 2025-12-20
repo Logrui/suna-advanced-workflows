@@ -168,7 +168,7 @@ export default function FlowPage({ view }: { view?: boolean }): JSX.Element {
         {currentFlow && (
           <div className="flex h-full overflow-hidden">
             <SidebarProvider
-              width="17.5rem"
+              width="22rem"
               defaultOpen={!isMobile}
               segmentedSidebar={ENABLE_NEW_SIDEBAR}
             >
@@ -195,12 +195,12 @@ export default function FlowPage({ view }: { view?: boolean }): JSX.Element {
               lastSaved={
                 updatedAt
                   ? new Date(updatedAt).toLocaleString("en-US", {
-                      hour: "numeric",
-                      minute: "numeric",
-                      second: "numeric",
-                      month: "numeric",
-                      day: "numeric",
-                    })
+                    hour: "numeric",
+                    minute: "numeric",
+                    second: "numeric",
+                    month: "numeric",
+                    day: "numeric",
+                  })
                   : undefined
               }
               autoSave={autoSaving}

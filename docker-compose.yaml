@@ -1,0 +1,42 @@
+# This is a full source build of Suna Advanced Workflows baked into one Docker service serving at 7860 internally
+
+networks:
+  dev-langflow:
+
+services:
+  suna-advanced-workflows:
+    image: suna-advanced-workflows
+    container_name: suna-advanced-workflows
+    build: .
+    ports:
+      - "7860:7860"
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    environment:
+      - LANGFLOW_DATABASE_URL=postgresql://langflow:langflow@postgres:5432/langflow
+      # This variable defines where the logs, file storage, monitor data and secret keys are stored.
+      - LANGFLOW_CONFIG_DIR=/app/langflow
+    volumes:
+      - langflow-data:/app/langflow
+    networks:
+      - dev-langflow
+  
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: suna-postgres
+    environment:
+      POSTGRES_USER: langflow
+      POSTGRES_PASSWORD: langflow
+      POSTGRES_DB: langflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - dev-langflow
+
+volumes:
+  langflow-data:
+  postgres-data:

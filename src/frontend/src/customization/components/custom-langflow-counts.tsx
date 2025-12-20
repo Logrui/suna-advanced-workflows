@@ -1,7 +1,7 @@
-import { LangflowCounts } from "@/components/core/appHeaderComponent/components/langflow-counts";
+// Disabled for Kortix Advanced Workflows - no external links
 
 export function CustomLangflowCounts() {
-  return <LangflowCounts />;
+  return <></>;
 }
 
 export default CustomLangflowCounts;

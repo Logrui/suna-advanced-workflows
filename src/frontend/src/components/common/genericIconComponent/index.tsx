@@ -11,7 +11,6 @@ import { useDarkStore } from "../../../stores/darkStore";
 import { IconComponentProps } from "../../../types/components";
 import { getCachedIcon, getNodeIcon } from "../../../utils/styleUtils";
 import { cn } from "../../../utils/utils";
-
 export const ForwardedIconComponent = memo(
   forwardRef(
     (

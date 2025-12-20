@@ -214,6 +214,7 @@ class Flow(FlowBase, table=True):  # type: ignore[call-arg]
 
 
 class FlowCreate(FlowBase):
+    id: UUID | None = None  # Allow external systems (Suna) to specify flow ID for 1:1 mapping
     user_id: UUID | None = None
     folder_id: UUID | None = None
     fs_path: str | None = None

@@ -136,9 +136,36 @@ async def refresh_token(
     response: Response,
     db: DbSession,
 ):
+    """Refresh access token using a refresh token.
+    
+    The refresh token can be provided via:
+    1. Cookie (refresh_token_lf) - standard browser flow
+    2. Request body JSON (refresh_token) - iframe/external auth flow
+    3. Header (X-Refresh-Token) - alternative for iframe/API flow
+    
+    This flexibility supports iframe embedding where cookies may not work
+    due to cross-origin restrictions (SameSite policies).
+    """
     auth_settings = get_settings_service().auth_settings
 
+    # Try to get refresh token from multiple sources (in priority order)
+    token = None
+    
+    # 1. First try cookie (standard flow)
     token = request.cookies.get("refresh_token_lf")
+    
+    # 2. If no cookie, try request body
+    if not token:
+        try:
+            body = await request.json()
+            token = body.get("refresh_token")
+        except Exception:
+            # No JSON body or invalid JSON - that's fine
+            pass
+    
+    # 3. If still no token, try header
+    if not token:
+        token = request.headers.get("X-Refresh-Token")
 
     if token:
         tokens = await create_refresh_token(token, db)

@@ -2,6 +2,7 @@
 
 // Mock all dependencies before imports
 const mockCookieManagerSet = jest.fn();
+const mockIsExternalAuthMode = jest.fn();
 
 jest.mock("@/utils/cookie-manager", () => ({
   cookieManager: {
@@ -16,6 +17,10 @@ jest.mock("@/utils/cookie-manager", () => ({
     set: jest.fn(),
     remove: jest.fn(),
   })),
+}));
+
+jest.mock("@/utils/iframe-mode", () => ({
+  isExternalAuthMode: () => mockIsExternalAuthMode(),
 }));
 
 jest.mock(
@@ -46,23 +51,44 @@ const mockApiPost = require("@/controllers/API/api").api.post;
 describe("refresh token functionality", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default to non-iframe mode for most tests
+    mockIsExternalAuthMode.mockReturnValue(false);
+  });
+
+  describe("external auth mode (iframe)", () => {
+    it("should skip refresh and reject in external auth mode", async () => {
+      mockIsExternalAuthMode.mockReturnValue(true);
+
+      const refreshMutation = useRefreshAccessToken();
+      await expect(refreshMutation.mutate()).rejects.toThrow("Refresh skipped in external auth mode");
+
+      // Verify API was NOT called
+      expect(mockApiPost).not.toHaveBeenCalled();
+      expect(mockCookieManagerSet).not.toHaveBeenCalled();
+    });
   });
 
   describe("successful token refresh", () => {
-    it("should call refresh API and set new refresh token cookie", async () => {
+    it("should call refresh API with stored refresh token in body and set new refresh token cookie", async () => {
+      const storedRefreshToken = "stored-refresh-token";
       const mockRefreshResponse = {
         access_token: "new-access-token",
         refresh_token: "new-refresh-token",
         token_type: "bearer",
       };
 
+      // Mock getting the stored refresh token
+      const mockCookieManager = require("@/utils/cookie-manager").cookieManager;
+      mockCookieManager.get.mockReturnValue(storedRefreshToken);
       mockApiPost.mockResolvedValue({ data: mockRefreshResponse });
 
       const refreshMutation = useRefreshAccessToken();
       const result = await refreshMutation.mutate();
 
+      // Verify API was called with refresh_token in body
       expect(mockApiPost).toHaveBeenCalledWith(
         expect.stringContaining("refresh"),
+        { refresh_token: storedRefreshToken },
       );
       expect(mockCookieManagerSet).toHaveBeenCalledWith(
         "refresh_token_lf",
@@ -78,6 +104,8 @@ describe("refresh token functionality", () => {
         token_type: "bearer",
       };
 
+      const mockCookieManager = require("@/utils/cookie-manager").cookieManager;
+      mockCookieManager.get.mockReturnValue("some-token");
       mockApiPost.mockResolvedValue({ data: mockRefreshResponse });
 
       const refreshMutation = useRefreshAccessToken();
@@ -120,6 +148,8 @@ describe("refresh token functionality", () => {
         token_type: "bearer",
       };
 
+      const mockCookieManager = require("@/utils/cookie-manager").cookieManager;
+      mockCookieManager.get.mockReturnValue("stored-token");
       mockApiPost.mockResolvedValue({ data: mockRefreshResponse });
 
       const refreshMutation = useRefreshAccessToken();
@@ -139,6 +169,8 @@ describe("refresh token functionality", () => {
         token_type: "bearer",
       };
 
+      const mockCookieManager = require("@/utils/cookie-manager").cookieManager;
+      mockCookieManager.get.mockReturnValue("stored-token");
       mockApiPost.mockResolvedValue({ data: mockRefreshResponse });
 
       const refreshMutation = useRefreshAccessToken();

@@ -37,6 +37,7 @@ class Folder(FolderBase, table=True):  # type: ignore[call-arg]
 
 
 class FolderCreate(FolderBase):
+    id: UUID | None = None  # Allow external systems (Suna) to specify project ID for 1:1 mapping
     components_list: list[UUID] | None = None
     flows_list: list[UUID] | None = None
 

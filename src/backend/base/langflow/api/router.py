@@ -5,6 +5,7 @@ from langflow.api.v1 import (
     api_key_router,
     chat_router,
     endpoints_router,
+    external_auth_router,
     files_router,
     flows_router,
     folders_router,
@@ -19,6 +20,7 @@ from langflow.api.v1 import (
     projects_router,
     starter_projects_router,
     store_router,
+    suna_integration_router,
     users_router,
     validate_router,
     variables_router,
@@ -38,6 +40,7 @@ router_v2 = APIRouter(
 
 router_v1.include_router(chat_router)
 router_v1.include_router(endpoints_router)
+router_v1.include_router(external_auth_router)
 router_v1.include_router(validate_router)
 router_v1.include_router(store_router)
 router_v1.include_router(flows_router)
@@ -57,6 +60,7 @@ router_v1.include_router(mcp_projects_router)
 router_v1.include_router(openai_responses_router)
 router_v1.include_router(models_router)
 router_v1.include_router(model_options_router)
+router_v1.include_router(suna_integration_router)
 
 router_v2.include_router(files_router_v2)
 router_v2.include_router(mcp_router_v2)
@@ -67,3 +71,4 @@ router = APIRouter(
 )
 router.include_router(router_v1)
 router.include_router(router_v2)
+

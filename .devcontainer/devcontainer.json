@@ -1,5 +1,5 @@
 {
-  "name": "Langflow Dev Container",
+  "name": "Suna Advanced Workflows Dev Container",
   "build": {
     "context": "..",
     "dockerfile": "Dockerfile"
@@ -8,7 +8,7 @@
     "ghcr.io/devcontainers/features/node": {},
     "ghcr.io/dhoeric/features/hadolint:1": {}
   },
-  "postCreateCommand": "sudo chown -R langflow .venv .mypy_cache src/frontend/node_modules src/frontend/build src/backend/base/langflow/frontend && make install_frontend && make install_backend",
+  "postCreateCommand": "sudo chown -R suna-advanced-workflows .venv .mypy_cache src/frontend/node_modules src/frontend/build src/backend/base/langflow/frontend && make install_frontend && make install_backend",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -33,10 +33,13 @@
       }
     }
   },
-  "remoteUser": "langflow",
+  "remoteUser": "suna-advanced-workflows",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
   "workspaceFolder": "/workspace",
-  "forwardPorts": [7860, 3000],
+  "forwardPorts": [
+    7860,
+    3000
+  ],
   "containerEnv": {
     "FRONTEND_START_FLAGS": "--host"
   },
@@ -53,7 +56,7 @@
     },
     {
       "source": "${localWorkspaceFolderBasename}-backend-frontend",
-      "target": "/workspace/src/backend/base/langflow/frontend",
+      "target": "/workspace/src/backend/base/suna-advanced-workflows/frontend",
       "type": "volume"
     },
     {
@@ -73,7 +76,7 @@
     },
     {
       "source": "${localWorkspaceFolderBasename}-backend-dist",
-      "target": "/workspace/src/backend/base/dist",
+      "target": "/workspace/src/backend/base/suna-advanced-workflows/dist",
       "type": "volume"
     }
   ]

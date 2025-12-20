@@ -2,7 +2,7 @@ networks:
   dev-langflow:
 
 services:
-  langflow:
+  dev-langflow:
     build:
       context: ..
       dockerfile: docker/dev.Dockerfile
@@ -10,23 +10,28 @@ services:
     container_name: dev-langflow
     restart: always
     ports:
-      - "7860:7860"
-      - "3000:3000"
+      - "7861:7860"
+      - "3001:3000"
     environment:
       - PYTHONDONTWRITEBYTECODE=1
       - LANGFLOW_DATABASE_URL=postgresql://langflow:langflow@postgres:5432/langflow
       - LANGFLOW_SUPERUSER=langflow
       - LANGFLOW_SUPERUSER_PASSWORD=langflow
       - LANGFLOW_CONFIG_DIR=/var/lib/langflow
+      - VITE_PROXY_TARGET=http://127.0.0.1:7860
     env_file:
       - ../.env
     volumes:
+      # Mount entire project for hot reload (frontend changes reflect immediately)
       - ../:/app
+      # Use named volumes for dependencies to improve performance
+      - langflow_venv:/app/.venv
+      - frontend_node_modules:/app/src/frontend/node_modules
+      - frontend_build:/app/src/frontend/build
     depends_on:
       - postgres
     networks:
       -  dev-langflow
-
 
   postgres:
     container_name: postgres
@@ -36,7 +41,12 @@ services:
       POSTGRES_PASSWORD: langflow
       POSTGRES_DB: langflow
     ports:
-      - "5432:5432"
+      - "5438:5432"
     networks:
       -  dev-langflow
+
+volumes:
+  langflow_venv:
+  frontend_node_modules:
+  frontend_build:
 

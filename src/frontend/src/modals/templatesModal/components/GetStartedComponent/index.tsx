@@ -42,7 +42,7 @@ export default function GetStartedComponent() {
       bgImage: multiAgent,
       bgHorizontalImage: multiAgentHorizontal,
       icon: "Bot",
-      category: "Agents",
+      category: "Subagents",
       flow: filteredExamples.find((example) => example.name === "Simple Agent"),
     },
   ];

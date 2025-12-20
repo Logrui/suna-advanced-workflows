@@ -9,6 +9,12 @@ import { useGetUserData } from "@/controllers/API/queries/auth";
 import { useGetGlobalVariablesMutation } from "@/controllers/API/queries/variables/use-get-mutation-global-variables";
 import useAuthStore from "@/stores/authStore";
 import { cookieManager } from "@/utils/cookie-manager";
+import {
+  cleanTokenFromUrl,
+  getExternalRefreshToken,
+  getExternalToken,
+  notifyParent,
+} from "@/utils/iframe-mode";
 import { setLocalStorage } from "@/utils/local-storage-util";
 import { useStoreStore } from "../stores/storeStore";
 import type { Users } from "../types/api";
@@ -16,15 +22,15 @@ import type { AuthContextType } from "../types/contexts/auth";
 
 const initialValue: AuthContextType = {
   accessToken: null,
-  login: () => {},
+  login: () => { },
   userData: null,
-  setUserData: () => {},
+  setUserData: () => { },
   authenticationErrorCount: 0,
-  setApiKey: () => {},
+  setApiKey: () => { },
   apiKey: null,
-  storeApiKey: () => {},
-  getUser: () => {},
-  clearAuthSession: () => {},
+  storeApiKey: () => { },
+  getUser: () => { },
+  clearAuthSession: () => { },
 };
 
 export const AuthContext = createContext<AuthContextType>(initialValue);
@@ -58,6 +64,27 @@ export function AuthProvider({ children }): React.ReactElement {
       setApiKey(apiKey);
     }
   }, []);
+
+  // Handle external token injection (iframe mode)
+  // When the app is embedded in an iframe by a parent application (like Suna),
+  // the token is passed via URL parameter. This effect consumes it and logs in.
+  useEffect(() => {
+    const externalToken = getExternalToken();
+    const externalRefreshToken = getExternalRefreshToken();
+
+    if (externalToken) {
+      console.log("[AuthContext] External token detected, authenticating...");
+
+      // Clean the URL to remove token params
+      cleanTokenFromUrl();
+
+      // Use the login function with the external token
+      login(externalToken, "true", externalRefreshToken || undefined);
+
+      // Notify parent that we're ready
+      notifyParent("advanced-workflows:authenticated");
+    }
+  }, []); // Run once on mount
 
   function getUser() {
     mutateLoggedUser(
@@ -99,6 +126,8 @@ export function AuthProvider({ children }): React.ReactElement {
     const checkAndSetAuthenticated = () => {
       if (userLoaded && variablesLoaded) {
         setIsAuthenticated(true);
+        // Notify parent that auth is complete (for iframe mode)
+        notifyParent("advanced-workflows:ready");
       }
     };
 
@@ -119,6 +148,10 @@ export function AuthProvider({ children }): React.ReactElement {
             setUserData(null);
             userLoaded = true;
             checkAndSetAuthenticated();
+            // Notify parent of auth error (for iframe mode)
+            notifyParent("advanced-workflows:error", {
+              error: "Failed to load user data",
+            });
           },
         },
       );
@@ -187,3 +220,4 @@ export function AuthProvider({ children }): React.ReactElement {
     </AuthContext.Provider>
   );
 }
+

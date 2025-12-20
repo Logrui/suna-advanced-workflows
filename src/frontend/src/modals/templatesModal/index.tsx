@@ -52,7 +52,7 @@ export default function TemplatesModal({
       items: [
         { title: "Prompting", icon: "MessagesSquare", id: "chatbots" },
         { title: "RAG", icon: "Database", id: "rag" },
-        { title: "Agents", icon: "Bot", id: "agents" },
+        { title: "Subagents", icon: "Bot", id: "agents" },
       ],
     },
   ];

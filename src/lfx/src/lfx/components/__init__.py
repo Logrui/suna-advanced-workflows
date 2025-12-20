@@ -209,6 +209,8 @@ _dynamic_imports = {
     "yahoosearch": "__module__",
     "youtube": "__module__",
     "zep": "__module__",
+    # Kortix Suna Integration Module
+    "kortix": "__module__",
 }
 
 # Track which modules we've already discovered to avoid re-scanning
@@ -339,6 +341,7 @@ __all__ = [
     "yahoosearch",
     "youtube",
     "zep",
+    "kortix",
 ]
 
 

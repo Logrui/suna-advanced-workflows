@@ -53,6 +53,7 @@ async def read_current_user(
     current_user: CurrentActiveUser,
 ) -> User:
     """Retrieve the current user's data."""
+    print(f"DEBUG_WHOAMI: user_id={current_user.id}, username={current_user.username}", flush=True)
     return current_user
 
 

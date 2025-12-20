@@ -46,7 +46,7 @@ class AuthSettings(BaseSettings):
         ),
     )
     """If True, the application will attempt to log in automatically as a super user."""
-    skip_auth_auto_login: bool = False
+    skip_auth_auto_login: bool = Field(default=True, validation_alias="LANGFLOW_SKIP_AUTH_AUTO_LOGIN")
     """If True, the application will skip authentication when AUTO_LOGIN is enabled.
     This will be removed in v2.0"""
 

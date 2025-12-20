@@ -296,6 +296,7 @@ async def read_flow(
     current_user: CurrentActiveUser,
 ):
     """Read a flow."""
+    print(f"DEBUG_FLOW_READ: flow_id={flow_id}, user_id={current_user.id}", flush=True)
     if user_flow := await _read_flow(session, flow_id, current_user.id):
         # Convert to FlowRead while session is still active to avoid detached instance errors
         return FlowRead.model_validate(user_flow, from_attributes=True)

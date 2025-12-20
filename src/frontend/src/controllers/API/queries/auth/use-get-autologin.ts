@@ -37,6 +37,26 @@ export const useGetAutoLogin: useQueryFunctionType<undefined, undefined> = (
   const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   async function getAutoLoginFn(): Promise<null> {
+    // Skip auto_login when in external auth mode (iframe with token from parent app)
+    // The authContext handles external token authentication instead
+    const params = new URLSearchParams(window.location.search);
+    const hasExternalToken = params.has("token");
+
+    // Check if we're in an iframe - the token may have been cleaned from URL already
+    // Wrap in try-catch as cross-origin iframes throw security errors
+    let isInIframe = false;
+    try {
+      isInIframe = window.self !== window.top;
+    } catch {
+      // Cross-origin iframe will throw, treat as iframe
+      isInIframe = true;
+    }
+
+    if (hasExternalToken || isInIframe) {
+      console.log("[AutoLogin] Skipping - external auth mode detected (token or iframe)");
+      return null;
+    }
+
     try {
       const response = await api.get<Users>(`${getURL("AUTOLOGIN")}`);
       const user = response.data;
@@ -82,7 +102,7 @@ export const useGetAutoLogin: useQueryFunctionType<undefined, undefined> = (
       const isHomePath = currentPath === "/" || currentPath === "/flows";
       navigate(
         "/login" +
-          (!isHomePath && !isLoginPage ? "?redirect=" + currentPath : ""),
+        (!isHomePath && !isLoginPage ? "?redirect=" + currentPath : ""),
       );
     } else if (autoLoginNotAuthenticated) {
       const retryCount = retryCountRef.current;

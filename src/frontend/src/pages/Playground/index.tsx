@@ -59,7 +59,7 @@ export default function PlaygroundPage() {
   }, []);
 
   useEffect(() => {
-    document.title = currentSavedFlow?.name || "Langflow";
+    document.title = currentSavedFlow?.name || "Kortix Advanced Workflows";
     if (currentSavedFlow?.data) {
       const { inputs, outputs } = getInputsAndOutputs(
         currentSavedFlow?.data?.nodes || [],
@@ -95,7 +95,7 @@ export default function PlaygroundPage() {
       {currentSavedFlow && (
         <CustomIOModal
           open={true}
-          setOpen={() => {}}
+          setOpen={() => { }}
           isPlayground
           playgroundPage
         >

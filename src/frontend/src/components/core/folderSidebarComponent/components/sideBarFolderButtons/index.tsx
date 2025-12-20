@@ -495,8 +495,8 @@ const SideBarFoldersButtonsComponent = ({
               size="md"
               className="text-sm"
             >
-              <ForwardedIconComponent name="File" className="h-4 w-4" />
-              My Files
+              <ForwardedIconComponent name="Brain" className="h-4 w-4" />
+              Knowledge Base
             </SidebarMenuButton>
           </div>
         </SidebarFooter>

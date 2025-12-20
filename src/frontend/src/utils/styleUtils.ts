@@ -6,6 +6,7 @@ import { ENABLE_KNOWLEDGE_BASES } from "@/customization/feature-flags";
 import { BotMessageSquareIcon } from "@/icons/BotMessageSquare";
 import { fontAwesomeIcons, isFontAwesomeIcon } from "@/icons/fontAwesomeIcons";
 import { GradientSave } from "@/icons/GradientSparkles";
+import { SunaKortixIcon } from "@/icons/SunaKortix";
 
 const iconCache = new Map<string, any>();
 
@@ -85,6 +86,7 @@ export const swatchColors = [
 export const nodeColors: { [char: string]: string } = {
   inputs: "#10B981",
   outputs: "#AA2411",
+  kortix: "#903BBE",
   data: "#198BF6",
   prompts: "#4367BF",
   models: "#ab11ab",
@@ -137,6 +139,7 @@ export const nodeColorsName: { [char: string]: string } = {
   // custom_components: "#ab11ab",
   inputs: "emerald",
   outputs: "red",
+  kortix: "purple",
   data: "sky",
   prompts: "blue",
   models: "fuchsia",
@@ -209,9 +212,19 @@ export const FILE_ICONS = {
 
 export const SIDEBAR_CATEGORIES = [
   { display_name: "Saved", name: "saved_components", icon: "GradientSave" },
+  // Suna Kortix Categories
+  { display_name: "Kortix", name: "kortix", icon: "SunaKortixIcon" },
+  { display_name: "Workers", name: "workers", icon: "Bot" },
+  { display_name: "Sandbox", name: "sandbox", icon: "Container" },
+  { display_name: "Projects & Threads", name: "projects_threads", icon: "FolderKanban" },
+  { display_name: "Memory", name: "memory", icon: "Brain" },
+  { display_name: "Triggers", name: "triggers", icon: "Zap" },
+  { display_name: "Workflows", name: "workflows", icon: "Workflow" },
+  { display_name: "Playbooks", name: "playbooks", icon: "BookOpen" },
+  // Standard Categories
   { display_name: "Input & Output", name: "input_output", icon: "Cable" },
   { display_name: "Data Sources", name: "data_source", icon: "Database" },
-  { display_name: "Models & Agents", name: "models_and_agents", icon: "Bot" },
+  { display_name: "Models & Subagents", name: "models_and_agents", icon: "Bot" },
   {
     display_name: "LLM Operations",
     name: "llm_operations",
@@ -231,7 +244,7 @@ export const SIDEBAR_CATEGORIES = [
   { display_name: "Utilities", name: "utilities", icon: "Wand2" },
   { display_name: "Prototypes", name: "prototypes", icon: "FlaskConical" },
   { display_name: "Tools", name: "tools", icon: "Hammer" },
-  { display_name: "Agents", name: "agents", icon: "Bot" },
+  { display_name: "Subagents", name: "agents", icon: "Bot" },
   { display_name: "Data", name: "data", icon: "Database" },
   { display_name: "Logic", name: "logic", icon: "ArrowRightLeft" },
   { display_name: "Helpers", name: "helpers", icon: "Wand2" },
@@ -355,6 +368,16 @@ export const SIDEBAR_BUNDLES = [
 
 export const categoryIcons: Record<string, string> = {
   saved_components: "GradientSave",
+  // Suna Kortix Categories
+  kortix: "SunaKortixIcon",
+  workers: "Bot",
+  sandbox: "Container",
+  projects_threads: "FolderKanban",
+  memory: "Brain",
+  triggers: "Zap",
+  workflows: "Workflow",
+  playbooks: "BookOpen",
+  // Standard Categories
   input_output: "Cable",
   inputs: "Download",
   outputs: "Upload",
@@ -383,6 +406,7 @@ export const categoryIcons: Record<string, string> = {
 
 export const nodeIconToDisplayIconMap: Record<string, string> = {
   //Category Icons
+  kortix: "Sparkles",
   input_output: "Cable",
   inputs: "Download",
   outputs: "Upload",
@@ -530,10 +554,11 @@ const iconMappingsPromise = import("../icons/lazyIconImports").then(
   (module) => module.lazyIconsMapping,
 );
 
-export const eagerLoadedIconsMap = {
+export const eagerLoadedIconsMap: Record<string, any> = {
   // Custom icons
   GradientSave: GradientSave,
   BotMessageSquareIcon: BotMessageSquareIcon,
+  SunaKortixIcon: SunaKortixIcon,
 
   // React icon
   FaApple: FaApple,

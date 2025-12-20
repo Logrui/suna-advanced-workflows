@@ -2,6 +2,16 @@ from .model_metadata import create_model_metadata
 
 # Unified model metadata - single source of truth
 GOOGLE_GENERATIVE_AI_MODELS_DETAILED = [
+    # GEMINI 3.0 Pro Preview
+    create_model_metadata(
+        provider="Google Generative AI",
+        name="gemini-3-pro-preview",
+        icon="GoogleGenerativeAI",
+        tool_calling=True,
+        default=True,
+        preview=True,
+    ),
+
     # GEMINI 1.5 (stable)
     create_model_metadata(
         provider="Google Generative AI",

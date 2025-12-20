@@ -365,7 +365,7 @@ export default function IOModal({
             >
               <div
                 className={cn(
-                  "relative flex h-full flex-col overflow-y-auto border-r border-border bg-muted p-4 text-center custom-scroll dark:bg-canvas",
+                  "relative flex h-full flex-col overflow-y-auto border-r border-border bg-muted p-4 text-center custom-scroll dark:bg-sidebar",
                   playgroundPage ? "pt-[15px]" : "pt-3.5",
                 )}
               >

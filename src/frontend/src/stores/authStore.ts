@@ -12,7 +12,10 @@ import { cookieManager, getCookiesInstance } from "@/utils/cookie-manager";
 const cookies = getCookiesInstance();
 const useAuthStore = create<AuthStoreType>((set, get) => ({
   isAdmin: false,
-  isAuthenticated: !!cookies.get(LANGFLOW_ACCESS_TOKEN),
+  isAuthenticated:
+    !!cookies.get(LANGFLOW_ACCESS_TOKEN) ||
+    (typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("token")),
   accessToken: cookies.get(LANGFLOW_ACCESS_TOKEN) ?? null,
   userData: null,
   autoLogin: null,
