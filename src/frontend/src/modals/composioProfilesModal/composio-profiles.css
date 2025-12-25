@@ -1,0 +1,167 @@
+/* Scoped styles for Composio Profile Management */
+/* Using OKLCH for premium color fidelity */
+
+.composio-modal {
+  /* Base Colors - Deep Void Theme */
+  --cp-background: oklch(0.12 0.02 240);  /* Deep Blue-Grey */
+  --cp-foreground: oklch(0.98 0.01 240);  /* Off-White */
+  
+  /* Primary Accent */
+  --cp-primary: oklch(0.65 0.18 250);     /* Vivid Indigo */
+  --cp-primary-foreground: oklch(1 0 0);  /* White */
+  
+  /* Surfaces */
+  --cp-card: oklch(0.15 0.03 240 / 0.6);  /* Glassy Card */
+  --cp-card-foreground: oklch(0.9 0.02 240);
+  --cp-popover: oklch(0.15 0.03 240);
+  --cp-popover-foreground: oklch(0.98 0.01 240);
+  
+  /* UI Elements */
+  --cp-border: oklch(0.25 0.05 240);
+  --cp-input: oklch(0.25 0.05 240);
+  --cp-ring: oklch(0.65 0.18 250);
+  
+  /* Status Colors */
+  --cp-success: oklch(0.7 0.15 150);
+  --cp-warning: oklch(0.8 0.15 85);
+  --cp-error: oklch(0.65 0.2 30);
+  
+  /* Animation variables */
+  --cp-radius: 0.75rem;
+}
+
+/* Scoped Utility Classes */
+.composio-text-balance {
+  text-wrap: balance;
+}
+
+.composio-glass {
+  background: var(--cp-card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--cp-border);
+}
+
+.composio-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: composio-shimmer 2s infinite;
+}
+
+@keyframes composio-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Component-specific styles */
+
+/* GrainOverlay */
+.composio-grain-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-repeat: repeat;
+  background-size: 200px 200px;
+  mix-blend-mode: overlay;
+  z-index: 1;
+}
+
+/* PremiumCard */
+.composio-premium-card {
+  position: relative;
+  background: var(--cp-card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius);
+  overflow: hidden;
+}
+
+/* SelectableRow */
+.composio-selectable-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: calc(var(--cp-radius) * 0.75);
+  transition: all 0.2s ease;
+}
+
+.composio-selectable-row:hover {
+  background: var(--cp-card);
+}
+
+.composio-selectable-row-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.composio-checkbox {
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--cp-border);
+  border-radius: 0.375rem;
+  background: var(--cp-background);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.composio-checkbox:checked {
+  background: var(--cp-primary);
+  border-color: var(--cp-primary);
+}
+
+.composio-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.375rem;
+  height: 0.625rem;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -60%) rotate(45deg);
+}
+
+.composio-checkbox:hover {
+  border-color: var(--cp-primary);
+}
+
+/* BulkActionsBar */
+.composio-bulk-actions-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--cp-card);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--cp-border);
+  padding: 0.75rem 1rem;
+  margin: -1rem -1rem 1rem -1rem;
+}
+
+.composio-bulk-actions-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.composio-bulk-actions-count {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--cp-foreground);
+}
+
+.composio-bulk-actions-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

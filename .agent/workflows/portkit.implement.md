@@ -1,9 +1,5 @@
 ---
 description: Execute the Portkit implementation tasks.
-handoffs:
-  - label: Verify Implementation
-    agent: portkit.verify
-    prompt: Implementation complete. Proceed to verification.
 ---
 
 //turbo-all
@@ -19,11 +15,11 @@ You **MUST** consider the user input before proceeding (if not empty).
 Execute the atomic tasks defined in `tasks.md` to implement the feature, including sanitation, morphing, and integration.
 
 ## Note
-Strict adherence to `tasks.md` is required. Do not improvise new architecture during implementation without updating the plan.
+Strict adherence to `tasks.md` is required. Do not improvise new architecture during implementation without updating the plan. Or asking the user for clarification of key decisions
 
 ## Outline
 1.  **Parse Input**: Identify Feature Name.
-2.  **Verify Context**: Ensure `tasks.md` and `implementation_plan.md` exist.
+2.  **Verify Context**: Ensure `tasks.md` and `implementation_plan.md` exist or their context related equivalents exist
 
 3.  **Gate Check (Checklists)**:
     *   Scan `implementation_plan.md` (or `checklists/requirements_check.md`).

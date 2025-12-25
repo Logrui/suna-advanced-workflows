@@ -1,9 +1,5 @@
 ---
 description: Decompose Portkit strategies into atomic, dependency-ordered tasks. Generates `tasks.md`.
-handoffs:
-  - label: Implement Feature
-    agent: portkit.implement
-    prompt: Tasks ready at `specs/[feature]/tasks.md`. Begin code implementation.
 ---
 
 //turbo-all
@@ -22,12 +18,11 @@ Decompose the Implementation Plan into atomic, dependency-ordered tasks executab
 Tasks must be granular enough (one file per task ideally) to prevent the downstream implementation agents from getting overwhelmed.
 
 ## Outline
-1.  **Parse Input**: Identify Feature Name.
-2.  **Verify Context**: Ensure `implementation_plan.md` exists. Use absolute paths.
+1.  **Parse Input**: Identify Feature Name or applicable conversation context
+2.  **Verify Context**: Ensure `implementation_plan.md` or chat referenced planning document exists. Use absolute paths.
 3.  **Task Generation Logic**:
     *   **Goal**: Translate "Morph Strategies" and "Bridge Adapters" into executable `T###` tasks.
     *   **Critical Constraint**: Tasks MUST be atomic. An agent should be able to execute one task without asking for clarification.
-    *   **Registry Enforcement**: Any task that creates a **new file** MUST include an instruction to add `// feature-start: [name]` and `// feature-end: [name]` tags to that file.
 
 4.  **Task Format Rules (REQUIRED)**:
     *   Every task MUST strictly follow this format:
@@ -66,9 +61,9 @@ Tasks must be granular enough (one file per task ideally) to prevent the downstr
         *   `- [ ] T901 [Verify] Run portkit.verify workflow`
 
 6.  **Output**:
-    *   Write to: `.portkit/specs/[feature]/tasks.md`.
+    *   Write to: `.portkit/specs/[feature]/tasks.md` or applicable folder based on the invocation context
     *   *Self-Correction*: Ensure no tasks are ambiguous. Every task must mention a specific file or script.
 
 7.  **Completion**:
-    *   Report task count.
+    *   Report task count and task decomposition completion. Propose to the user tasks that can be run simulataneously by multiple agents at different stages
     *   **Recommendation**: Suggest the user runs `/portkit.implement` to begin code modification.

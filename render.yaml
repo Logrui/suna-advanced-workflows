@@ -1,10 +1,10 @@
 services:
   # A Docker web service
   - type: web
-    name: langflow
+    name: suna-advanced-workflows
     runtime: docker
     dockerfilePath: ./docker/render.Dockerfile
-    repo: https://github.com/langflow-ai/langflow
+    repo: https://github.com/logrui/suna-advanced-workflows
     branch: main
     plan: standard
     healthCheckPath: /health_check

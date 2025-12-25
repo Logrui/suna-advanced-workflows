@@ -1,6 +1,6 @@
 ---
 trigger: glob
-globs: *.ts, *tsx, *.js
+globs: "src/frontend/**/*.{ts,tsx,js,jsx}", "src/frontend/**/*.{css,scss,json}", "src/frontend/package*.json", "src/frontend/vite.config.*", "src/frontend/tailwind.config.*", "src/frontend/tsconfig.json"
 ---
 
 # Kortix (Suna) Frontend Design Guidelines

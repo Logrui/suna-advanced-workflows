@@ -932,7 +932,16 @@ async def custom_component_update(
                 if isinstance(field_dict, dict) and field_dict.get("load_from_db") and field_dict.get("value")
             ]
             if isinstance(cc_instance, Component):
-                params = await update_params_with_load_from_db_fields(cc_instance, params, load_from_db_fields)
+                try:
+                    params = await update_params_with_load_from_db_fields(cc_instance, params, load_from_db_fields)
+                except ValueError as e:
+                    # Gracefully handle cases where user context is not properly set
+                    # (e.g., iframe mode, session issues). Component update can proceed
+                    # but saved variables won't be resolved until user context is established.
+                    await logger.awarning(
+                        f"Could not load variables for component update: {e}. "
+                        "Saved variable values will not be resolved."
+                    )
                 cc_instance.set_attributes(params)
         updated_build_config = code_request.get_template()
         await update_component_build_config(

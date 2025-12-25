@@ -1,31 +1,66 @@
 # This is a full source build of Suna Advanced Workflows baked into one Docker service serving at 7860 internally
 
 networks:
-  dev-langflow:
+  suna-advanced-workflows:
 
 services:
   suna-advanced-workflows:
     image: suna-advanced-workflows
     container_name: suna-advanced-workflows
-    build: .
+    build:
+      context: .
+      args:
+        # Pass Vite environment variables to the Docker build
+        # These are baked into the frontend JavaScript bundle at build time
+        VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL: ${VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL:-https://api.suna.syhc.dev/v1}
     ports:
-      - "7860:7860"
+      - "3001:7860"
     env_file:
       - .env
     depends_on:
-      - postgres
+      - suna-advanced-workflows-postgres
     environment:
-      - LANGFLOW_DATABASE_URL=postgresql://langflow:langflow@postgres:5432/langflow
-      # This variable defines where the logs, file storage, monitor data and secret keys are stored.
+      # ─────────────────────────────────────────────────────────────────────────
+      # Database
+      # ─────────────────────────────────────────────────────────────────────────
+      - LANGFLOW_DATABASE_URL=postgresql://langflow:langflow@suna-advanced-workflows-postgres:5432/langflow
+      
+      # ─────────────────────────────────────────────────────────────────────────
+      # Langflow Config
+      # ─────────────────────────────────────────────────────────────────────────
       - LANGFLOW_CONFIG_DIR=/app/langflow
+      - LANGFLOW_DEV=false
+      - LFX_DEV=yes
+      - LANGFLOW_ALEMBIC_LOG_TO_STDOUT=false
+      - LANGFLOW_ALEMBIC_LOG_LEVEL=false
+      # Secret key for encrypting API keys and global variables (Fernet encryption)
+      # IMPORTANT: Keep this consistent across restarts to decrypt stored variables
+      - LANGFLOW_SECRET_KEY=nk0vHEUbDupLwCly8yOR2azgaWUlDvYnodUPqmYSMpE
+      
+      # ─────────────────────────────────────────────────────────────────────────
+      # Composio External Profiles (Backend reads these at runtime)
+      # ─────────────────────────────────────────────────────────────────────────
+      - COMPOSIO_MODE=${COMPOSIO_MODE:-EXTERNAL_PROFILES}
+      - COMPOSIO_API_KEY=${COMPOSIO_API_KEY}
+      
+      # ─────────────────────────────────────────────────────────────────────────
+      # CORS - Allow Suna Kortix frontend/backend to communicate with Langflow
+      # ─────────────────────────────────────────────────────────────────────────
+      # Comma-separated list of allowed origins for cross-origin requests
+      - LANGFLOW_CORS_ORIGINS=${LANGFLOW_CORS_ORIGINS}
+      - LANGFLOW_CORS_ALLOW_CREDENTIALS=true
+      
+      # NOTE: VITE_* variables are NOT needed here - they are baked into the 
+      # frontend JavaScript bundle at build time via build.args above
+      
     volumes:
       - langflow-data:/app/langflow
     networks:
-      - dev-langflow
+      - suna-advanced-workflows
   
-  postgres:
+  suna-advanced-workflows-postgres:
     image: pgvector/pgvector:pg16
-    container_name: suna-postgres
+    container_name: suna-advanced-workflows-postgres
     environment:
       POSTGRES_USER: langflow
       POSTGRES_PASSWORD: langflow
@@ -35,7 +70,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - dev-langflow
+      - suna-advanced-workflows
 
 volumes:
   langflow-data:

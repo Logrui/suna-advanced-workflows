@@ -5,32 +5,53 @@ from typing import TYPE_CHECKING, Any
 from lfx.components._importing import import_mod
 
 if TYPE_CHECKING:
+    from lfx.components.kortix.composio_tools import ComposioToolsComponent
     from lfx.components.kortix.composio_trigger import ComposioTriggerComponent
+    from lfx.components.kortix.custom_tool import CustomToolComponent
     from lfx.components.kortix.memory import SunaMemoryComponent
-    from lfx.components.kortix.playbook_runner import PlaybookRunnerComponent
-    from lfx.components.kortix.sandbox_file import SandboxFileComponent
-    from lfx.components.kortix.thread_manager import ThreadManagerComponent
-    from lfx.components.kortix.worker_agents import SunaWorkerComponent
-    from lfx.components.kortix.workflow_runner import WorkflowRunnerComponent
+    from lfx.components.kortix.native_tools import NativeToolsComponent
+    from lfx.components.kortix.project import ProjectComponent
+    from lfx.components.kortix.prompts import PlaybookRunnerComponent
+    from lfx.components.kortix.sandbox import SandboxFileComponent
+    from lfx.components.kortix.thread import ThreadManagerComponent
+    from lfx.components.kortix.trigger import TriggerComponent
+    from lfx.components.kortix.worker import KortixAgentComponent
+    from lfx.components.kortix.workflow import WorkflowRunnerComponent
 
 _dynamic_imports = {
+    # Composio integrations
+    "ComposioToolsComponent": "composio_tools",
     "ComposioTriggerComponent": "composio_trigger",
+    # Core components
+    "CustomToolComponent": "custom_tool",
+    "KortixAgentComponent": "worker",
+    "NativeToolsComponent": "native_tools",
+    "ProjectComponent": "project",
+    "SandboxFileComponent": "sandbox",
     "SunaMemoryComponent": "memory",
-    "PlaybookRunnerComponent": "playbook_runner",
-    "SandboxFileComponent": "sandbox_file",
-    "ThreadManagerComponent": "thread_manager",
-    "SunaWorkerComponent": "worker_agents",
-    "WorkflowRunnerComponent": "workflow_runner",
+    "ThreadManagerComponent": "thread",
+    "TriggerComponent": "trigger",
+    "WorkflowRunnerComponent": "workflow",
+    # Prompts
+    "PlaybookRunnerComponent": "prompts",
 }
 
 __all__ = [
+    # Composio integrations
+    "ComposioToolsComponent",
     "ComposioTriggerComponent",
-    "SunaMemoryComponent",
-    "PlaybookRunnerComponent",
+    # Core components
+    "CustomToolComponent",
+    "KortixAgentComponent",
+    "NativeToolsComponent",
+    "ProjectComponent",
     "SandboxFileComponent",
+    "SunaMemoryComponent",
     "ThreadManagerComponent",
-    "SunaWorkerComponent",
+    "TriggerComponent",
     "WorkflowRunnerComponent",
+    # Prompts
+    "PlaybookRunnerComponent",
 ]
 
 

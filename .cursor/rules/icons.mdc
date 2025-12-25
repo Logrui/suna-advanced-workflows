@@ -1,10 +1,6 @@
 ---
 description: "Rules for creating and implementing component icons in Langflow, covering both backend Python component icon attributes and frontend React icon implementation."
-globs:
-  - "src/frontend/src/icons/**/*"
-  - "src/frontend/src/icons/lazyIconImports.ts"
-  - "src/backend/**/*component*.py"
-  - "src/backend/**/components/**/*.py"
+globs: "src/frontend/src/icons/**/*", "src/frontend/src/icons/lazyIconImports.ts", "src/backend/**/*component*.py", "src/backend/**/components/**/*.py"
 alwaysApply: false
 ---
 

@@ -1,5 +1,6 @@
 import copy
 import json
+import os
 import re
 from contextlib import suppress
 from typing import Any
@@ -38,6 +39,22 @@ disable_component_in_astra_cloud_msg = (
 
 class ComposioBaseComponent(Component):
     """Base class for Composio components with common functionality."""
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # COMPOSIO MODE CONFIGURATION
+    # ═══════════════════════════════════════════════════════════════════════════
+    # COMPOSIO_MODE env var controls authentication flow:
+    # - "OAUTH" (default): Standard OAuth flow with API key and connection profiles
+    # - "EXTERNAL_PROFILES": Use external profiles from Suna Kortix (no local OAuth)
+    #
+    # When EXTERNAL_PROFILES is enabled:
+    # - api_key input is hidden (uses env var COMPOSIO_API_KEY for schema fetching)
+    # - auth_link is hidden (no OAuth flow)
+    # - connection_profile is replaced with suna_profile_selector
+    # - execute_action uses mcp_url for direct HTTP calls instead of SDK
+    # ═══════════════════════════════════════════════════════════════════════════
+    COMPOSIO_MODE: str = os.getenv("COMPOSIO_MODE", "OAUTH").upper()
+    IS_EXTERNAL_PROFILES_MODE: bool = COMPOSIO_MODE == "EXTERNAL_PROFILES"
 
     default_tools_limit: int = 5
 
@@ -119,11 +136,23 @@ class ComposioBaseComponent(Component):
             real_time_refresh=True,
             helper_text="Choose how to authenticate with the toolkit.",
         ),
+        DropdownInput(
+            name="connection_profile",
+            display_name="Connection Profile",
+            options=[],
+            placeholder="Select or create connection",
+            show=True,  # Always visible
+            real_time_refresh=True,
+            helper_text="Choose an existing connection or create a new one.",
+            advanced=False,
+        ),
         AuthInput(
             name="auth_link",
+            display_name="Authentication Link",
             value="",
-            auth_tooltip="Please insert a valid Composio API Key.",
-            show=False,
+            auth_tooltip="Please insert a valid Composio API Key. Then click on the authentication link.",
+            show=True,
+            real_time_refresh=True,
         ),
         # Pre-defined placeholder fields for dynamic auth - hidden by default
         SecretStrInput(
@@ -332,6 +361,58 @@ class ComposioBaseComponent(Component):
             real_time_refresh=True,
             limit=1,
         ),
+        StrInput(
+            name="manage_profiles",
+            display_name="Manage Profiles",
+            field_type="composio_profiles_modal",
+            show=True,
+            required=False,
+            value="",
+            helper_text="Click to manage your Composio connection profiles",
+        ),
+    ]
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # EXTERNAL PROFILES MODE INPUTS
+    # These inputs are only shown when COMPOSIO_MODE=EXTERNAL_PROFILES
+    # They replace the standard OAuth flow with Suna Kortix profile selection
+    # ═══════════════════════════════════════════════════════════════════════════
+    _external_profile_inputs = [
+        DropdownInput(
+            name="suna_profile_selector",
+            display_name="Suna Profile",
+            options=[],  # Populated by frontend from Suna API
+            placeholder="Select a Composio profile from Suna",
+            show=True,
+            real_time_refresh=True,
+            info="Select a connected profile managed by Suna Kortix",
+            helper_text="Profiles are managed in Suna Kortix. Select one to use its credentials.",
+            advanced=False,
+        ),
+        StrInput(
+            name="external_profile_id",
+            display_name="Profile ID",
+            value="",
+            show=False,  # Hidden, stores the selected profile ID
+            required=False,
+            info="ID of the selected external profile",
+        ),
+        StrInput(
+            name="external_mcp_url",
+            display_name="MCP URL",
+            value="",
+            show=False,  # Hidden, stores the MCP URL for direct execution
+            required=False,
+            info="MCP URL for direct tool execution (bypasses SDK)",
+        ),
+        StrInput(
+            name="external_toolkit_slug",
+            display_name="Toolkit Slug",
+            value="",
+            show=False,  # Hidden, stores the toolkit slug for filtering
+            required=False,
+            info="The toolkit slug (e.g., 'gmail', 'slack') for this profile",
+        ),
     ]
 
     _name_sanitizer = re.compile(r"[^a-zA-Z0-9_-]")
@@ -361,7 +442,17 @@ class ComposioBaseComponent(Component):
         Output(name="dataFrame", display_name="DataFrame", method="as_dataframe"),
     ]
 
-    inputs = list(_base_inputs)
+    # Use mode-filtered inputs based on COMPOSIO_MODE env var
+    # In EXTERNAL_PROFILES mode: hides api_key, auth_mode, auth_link, connection_profile
+    # and shows suna_profile_selector instead
+    if IS_EXTERNAL_PROFILES_MODE:
+        # Filter out OAuth-specific inputs and add external profile inputs
+        _oauth_inputs_to_hide = {"api_key", "auth_link", "auth_mode", "connection_profile", "manage_profiles"}
+        inputs = [inp for inp in _base_inputs if inp.name not in _oauth_inputs_to_hide] + list(_external_profile_inputs)
+    else:
+        inputs = list(_base_inputs)
+
+
 
     def __init__(self, **kwargs):
         """Initialize instance variables to prevent shared state between components."""
@@ -1182,6 +1273,144 @@ class ComposioBaseComponent(Component):
             msg = f"Failed to disconnect connection {connection_id}: {e}"
             raise ValueError(msg) from e
 
+    def _list_all_connections_for_app(self, app_name: str) -> list[dict]:
+        """List all connections (including inactive) for this app/user.
+        
+        Returns a list of dicts with connection info for populating the profile dropdown.
+        """
+        connections = []
+        try:
+            composio = self._build_wrapper()
+            connection_list = composio.connected_accounts.list(
+                user_ids=[self.entity_id], toolkit_slugs=[app_name.lower()]
+            )
+
+            if connection_list and hasattr(connection_list, "items") and connection_list.items:
+                for connection in connection_list.items:
+                    connection_id = getattr(connection, "id", None)
+                    connection_status = getattr(connection, "status", None)
+                    created_at = getattr(connection, "created_at", None)
+                    # Try to get a display name or identifier
+                    auth_config = getattr(connection, "auth_config", None)
+                    scheme = getattr(auth_config, "auth_scheme", None) if auth_config else "Unknown"
+                    
+                    if connection_id:
+                        connections.append({
+                            "id": connection_id,
+                            "status": connection_status or "UNKNOWN",
+                            "auth_scheme": scheme,
+                            "created_at": str(created_at) if created_at else None,
+                            "is_active": connection_status == "ACTIVE",
+                        })
+        except (ValueError, ConnectionError, TypeError, AttributeError) as e:
+            logger.warning(f"Error listing connections for {app_name}: {e}")
+        
+        # Sort: active connections first, then by creation date
+        connections.sort(key=lambda x: (not x.get("is_active", False), x.get("created_at") or ""))
+        return connections
+
+    def _populate_connection_profile_dropdown(self, build_config: dict) -> None:
+        """Populate the connection_profile dropdown with existing connections.
+        
+        Options format:
+        - "+ Create New Connection" (always first)
+        - "✓ Gmail Account 1 (OAUTH2)" for active connections
+        - "○ Gmail Account 2 (API_KEY)" for inactive connections
+        """
+        app_name = getattr(self, "app_name", "")
+        if not app_name:
+            return
+        
+        # Check if user explicitly chose "Create New" - preserve that selection
+        current_value = build_config.get("connection_profile", {}).get("value", "")
+        if current_value.startswith("+ Create"):
+            logger.debug("Preserving user's 'Create New Connection' selection")
+            return
+        
+        connections = self._list_all_connections_for_app(app_name)
+        
+        options = ["+ Create New Connection"]
+        
+        # Get toolkit display name for human-readable labels
+        toolkit_display = getattr(self, "display_name", getattr(self, "app_name", "Account")).replace(" Composio", "").strip()
+        
+        for idx, conn in enumerate(connections):
+            status_icon = "✓" if conn.get("is_active") else "○"
+            scheme = conn.get("auth_scheme", "Unknown")
+            account_num = idx + 1
+            # Human-readable format: "✓ Gmail Account 1 (OAUTH2)"
+            label = f"{status_icon} {toolkit_display} Account {account_num} ({scheme})"
+            # Store full ID as the value part after pipe separator
+            options.append(f"{label}|{conn.get('id', '')}")
+        
+        build_config.setdefault("connection_profile", {})
+        build_config["connection_profile"]["options"] = options
+        build_config["connection_profile"]["show"] = True  # Always visible
+        
+        # If there's an active connection, auto-select it
+        active_conn = next((c for c in connections if c.get("is_active")), None)
+        if active_conn:
+            # Find the index of the active connection for proper numbering
+            active_idx = next((i for i, c in enumerate(connections) if c.get("id") == active_conn.get("id")), 0)
+            scheme = active_conn.get("auth_scheme", "Unknown")
+            account_num = active_idx + 1
+            label = f"✓ {toolkit_display} Account {account_num} ({scheme})"
+            build_config["connection_profile"]["value"] = f"{label}|{active_conn['id']}"
+            logger.debug(f"Auto-selected active connection: {active_conn['id']}")
+
+    def _handle_connection_profile_selection(self, build_config: dict, field_value: str) -> bool:
+        """Handle connection_profile dropdown selection.
+        
+        Returns True if an existing connection was selected (no auth flow needed).
+        Returns False if user wants to create new connection (auth flow should proceed).
+        """
+        if not field_value or field_value.startswith("+ Create"):
+            # User wants to create new connection - show auth flow
+            build_config.setdefault("auth_link", {})
+            build_config["auth_link"]["show"] = True
+            build_config["auth_link"]["value"] = "connect"
+            build_config["auth_link"]["auth_tooltip"] = "Connect"
+            build_config["auth_link"].pop("connection_id", None)
+            return False
+        
+        # Parse selected connection ID from value
+        if "|" in field_value:
+            connection_id = field_value.split("|")[-1]
+        else:
+            connection_id = None
+        
+        if not connection_id:
+            return False
+        
+        # Validate the connection is still active
+        status = self._check_connection_status_by_id(connection_id)
+        if status == "ACTIVE":
+            # Use this connection - hide auth flow
+            build_config.setdefault("auth_link", {})
+            build_config["auth_link"]["value"] = "validated"
+            build_config["auth_link"]["auth_tooltip"] = "Disconnect"
+            build_config["auth_link"]["connection_id"] = connection_id
+            build_config["auth_link"]["show"] = False  # Hide auth button when already connected
+            
+            # Get and store the auth scheme
+            scheme, is_managed = self._get_connection_auth_info(connection_id)
+            if scheme:
+                build_config["auth_link"]["auth_scheme"] = scheme
+                build_config.setdefault("auth_mode", {})
+                build_config["auth_mode"]["value"] = scheme
+                build_config["auth_mode"]["show"] = False
+            
+            logger.info(f"Selected existing connection: {connection_id}")
+            return True
+        else:
+            # Connection not active - prompt for new auth
+            logger.warning(f"Selected connection {connection_id} is not active (status: {status})")
+            build_config.setdefault("auth_link", {})
+            build_config["auth_link"]["show"] = True
+            build_config["auth_link"]["value"] = "connect"
+            build_config["auth_link"]["auth_tooltip"] = "Reconnect"
+            return False
+
     def _to_plain_dict(self, obj: Any) -> Any:
         """Recursively convert SDK models/lists to plain Python dicts/lists for safe .get access."""
         try:
@@ -1573,6 +1802,12 @@ class ComposioBaseComponent(Component):
             schema = self._get_toolkit_schema()
             modes = self._extract_auth_modes_from_schema(schema)
             self._render_auth_mode_dropdown(build_config, modes)
+            
+            # Populate connection profile dropdown with existing connections
+            try:
+                self._populate_connection_profile_dropdown(build_config)
+            except Exception as e:
+                logger.debug(f"Could not populate connection profiles: {e}")
         else:
             build_config["action_button"]["options"] = []
             logger.warning("No actions found, setting empty options")
@@ -1635,6 +1870,24 @@ class ComposioBaseComponent(Component):
             build_config["auth_link"].pop("connection_id", None)
             build_config["action_button"]["helper_text"] = "Please connect before selecting actions."
             build_config["action_button"]["helper_text_metadata"] = {"variant": "destructive"}
+            # Reset connection profile selection on disconnect
+            build_config.setdefault("connection_profile", {})
+            build_config["connection_profile"]["value"] = "+ Create New Connection"
+            return self.update_input_types(build_config)
+
+        # Handle connection_profile dropdown selection
+        if field_name == "connection_profile":
+            is_existing = self._handle_connection_profile_selection(build_config, field_value)
+            if is_existing:
+                # Existing connection selected - update action helper text
+                build_config.setdefault("action_button", {})
+                build_config["action_button"]["helper_text"] = "Connected. Select an action to execute."
+                build_config["action_button"]["helper_text_metadata"] = {"variant": "success"}
+            else:
+                # User wants new connection - auth flow will proceed
+                build_config.setdefault("action_button", {})
+                build_config["action_button"]["helper_text"] = "Please complete authentication to continue."
+                build_config["action_button"]["helper_text_metadata"] = {"variant": "warning"}
             return self.update_input_types(build_config)
 
         # Handle auth mode change -> render appropriate fields based on schema
@@ -1647,7 +1900,10 @@ class ComposioBaseComponent(Component):
                 mode = build_config["auth_mode"].get("value")
             # Always show auth_link for any mode
             build_config.setdefault("auth_link", {})
-            build_config["auth_link"]["show"] = False
+            # Only hide auth_link if user hasn't explicitly chosen to create a new connection
+            conn_profile_val = build_config.get("connection_profile", {}).get("value", "")
+            if not conn_profile_val.startswith("+ Create"):
+                build_config["auth_link"]["show"] = False
             # Reset connection state when switching modes
             build_config["auth_link"].pop("connection_id", None)
             build_config["auth_link"].pop("auth_config_id", None)
@@ -2020,7 +2276,10 @@ class ComposioBaseComponent(Component):
                 # Show validated connection status
                 build_config["auth_link"]["value"] = "validated"
                 build_config["auth_link"]["auth_tooltip"] = "Disconnect"
-                build_config["auth_link"]["show"] = False
+                # Only hide auth_link if user hasn't explicitly chosen to create a new connection
+                conn_profile_val = build_config.get("connection_profile", {}).get("value", "")
+                if not conn_profile_val.startswith("+ Create"):
+                    build_config["auth_link"]["show"] = False
                 # Update auth mode UI to reflect connected scheme
                 scheme, _ = self._get_connection_auth_info(active_connection_id)
                 if scheme:
@@ -2099,7 +2358,10 @@ class ComposioBaseComponent(Component):
                 build_config["tool_mode"]["value"] = True
             # Keep auth UI available and render fields if needed
             build_config.setdefault("auth_link", {})
-            build_config["auth_link"]["show"] = False
+            # Only hide auth_link if user hasn't explicitly chosen to create a new connection
+            conn_profile_val = build_config.get("connection_profile", {}).get("value", "")
+            if not conn_profile_val.startswith("+ Create"):
+                build_config["auth_link"]["show"] = False
             build_config["auth_link"]["display_name"] = ""
 
             # Only render auth fields if NOT already connected
@@ -2392,9 +2654,26 @@ class ComposioBaseComponent(Component):
         return all_tools[:limit]
 
     def execute_action(self):
-        """Execute the selected Composio tool."""
+        """Execute the selected Composio tool.
+
+        Supports two execution paths:
+        1. MCP URL (EXTERNAL_PROFILES mode): Direct HTTP calls to MCP endpoint
+        2. SDK (OAUTH mode): Standard Composio SDK execution
+        """
         # Check if we're in Astra cloud environment and raise an error if we are.
         raise_error_if_astra_cloud_disable_component(disable_component_in_astra_cloud_msg)
+
+        # ═══════════════════════════════════════════════════════════════════════════
+        # Check for MCP URL execution path (EXTERNAL_PROFILES mode)
+        # If external_mcp_url is set, we bypass the SDK and call MCP directly
+        # ═══════════════════════════════════════════════════════════════════════════
+        mcp_url = getattr(self, "external_mcp_url", None)
+        if mcp_url and self.IS_EXTERNAL_PROFILES_MODE:
+            return self._execute_via_mcp_url(mcp_url)
+
+        # ═══════════════════════════════════════════════════════════════════════════
+        # Standard SDK execution path (OAUTH mode)
+        # ═══════════════════════════════════════════════════════════════════════════
         composio = self._build_wrapper()
         self._populate_actions_data()
         self._build_action_maps()
@@ -2491,6 +2770,135 @@ class ComposioBaseComponent(Component):
         except ValueError as e:
             logger.error(f"Failed to execute {action_key}: {e}")
             raise
+
+    def _execute_via_mcp_url(self, mcp_url: str) -> Any:
+        """Execute action directly via MCP URL (EXTERNAL_PROFILES mode).
+
+        This method bypasses the Composio SDK and makes a direct HTTP POST
+        to the MCP endpoint using JSON-RPC protocol.
+
+        Args:
+            mcp_url: The MCP URL to call (obtained from Suna Kortix)
+
+        Returns:
+            The result of the tool execution
+
+        Raises:
+            ValueError: If the MCP call fails
+        """
+        import httpx
+
+        # Get action key from action_button
+        self._populate_actions_data()
+        self._build_action_maps()
+
+        display_name = (
+            self.action_button[0]["name"]
+            if isinstance(getattr(self, "action_button", None), list) and self.action_button
+            else self.action_button
+        )
+        action_key = self._display_to_key_map.get(display_name)
+
+        if not action_key:
+            msg = f"Invalid action: {display_name}"
+            raise ValueError(msg)
+
+        # Build arguments from component inputs (same logic as SDK path)
+        arguments: dict[str, Any] = {}
+        param_fields = self._actions_data.get(action_key, {}).get("action_fields", [])
+
+        schema_dict = self._action_schemas.get(action_key, {})
+        parameters_schema = schema_dict.get("input_parameters", {})
+        schema_properties = parameters_schema.get("properties", {}) if parameters_schema else {}
+        required_list = parameters_schema.get("required", []) if parameters_schema else []
+        required_fields = set(required_list) if required_list is not None else set()
+
+        for field in param_fields:
+            if not hasattr(self, field):
+                continue
+            value = getattr(self, field)
+
+            # Skip None, empty strings, and empty lists
+            if value is None or value == "" or (isinstance(value, list) and len(value) == 0):
+                continue
+
+            prop_schema = schema_properties.get(field, {})
+
+            # Parse JSON for object/array string inputs
+            if isinstance(value, str) and prop_schema.get("type") in {"array", "object"}:
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    if prop_schema.get("type") == "array":
+                        value = [item.strip() for item in value.split(",") if item.strip() != ""]
+
+            if field not in required_fields:
+                schema_default = prop_schema.get("default")
+                if value == schema_default:
+                    continue
+
+            if field in self._bool_variables:
+                value = bool(value)
+
+            # Handle renamed fields
+            final_field_name = field
+            if field.startswith(f"{self.app_name}_"):
+                potential_original = field[len(self.app_name) + 1 :]
+                if potential_original in self.RESERVED_ATTRIBUTES:
+                    final_field_name = potential_original
+
+            arguments[final_field_name] = value
+
+        logger.info(f"[MCP] Executing {action_key} via MCP URL")
+
+        try:
+            # Make JSON-RPC call to MCP endpoint
+            with httpx.Client(timeout=60.0) as client:
+                response = client.post(
+                    mcp_url,
+                    json={
+                        "jsonrpc": "2.0",
+                        "method": "tools/call",
+                        "params": {
+                            "name": action_key,
+                            "arguments": arguments,
+                        },
+                        "id": 1,
+                    },
+                    headers={"Content-Type": "application/json"},
+                )
+                response.raise_for_status()
+                result = response.json()
+
+                # Handle JSON-RPC response
+                if "result" in result:
+                    raw_data = result["result"]
+                    # Check if result has content array (MCP response format)
+                    if isinstance(raw_data, dict) and "content" in raw_data:
+                        content = raw_data["content"]
+                        if isinstance(content, list) and content:
+                            # Extract text from first content item
+                            first_item = content[0]
+                            if isinstance(first_item, dict) and "text" in first_item:
+                                try:
+                                    raw_data = json.loads(first_item["text"])
+                                except json.JSONDecodeError:
+                                    raw_data = first_item["text"]
+                    return self._apply_post_processor(action_key, raw_data)
+                elif "error" in result:
+                    error = result["error"]
+                    error_msg = error.get("message", "MCP execution failed")
+                    raise ValueError(f"MCP error: {error_msg}")
+                else:
+                    # Unexpected response format
+                    return self._apply_post_processor(action_key, result)
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"[MCP] HTTP error executing {action_key}: {e}")
+            raise ValueError(f"MCP HTTP error: {e}") from e
+        except httpx.RequestError as e:
+            logger.error(f"[MCP] Request error executing {action_key}: {e}")
+            raise ValueError(f"MCP request error: {e}") from e
 
     def _apply_post_processor(self, action_key: str, raw_data: Any) -> Any:
         """Apply post-processor for the given action if defined."""

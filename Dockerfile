@@ -4,10 +4,18 @@
 ################################
 FROM node:18-slim AS frontend-builder
 WORKDIR /build
+
+# Build arguments for Vite environment variables
+# These must be passed during `docker build` or via docker-compose build args
+ARG VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL=""
+
+# Expose as environment variables for Vite to pick up during build
+ENV VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL=${VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL}
+
 COPY src/frontend/package*.json ./
 RUN npm ci
 COPY src/frontend/ ./
-# Build the production assets
+# Build the production assets (Vite will bake VITE_* env vars into the bundle)
 RUN npm run build
 
 ################################
@@ -58,12 +66,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends libpq5 curl && 
 COPY --from=builder /app /app
 ENV PATH="/app/.venv/bin:$PATH"
 
+# Copy startup script
+COPY docker/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 # Environment configuration
 ENV LANGFLOW_HOST=0.0.0.0
 ENV LANGFLOW_PORT=7860
 ENV LANGFLOW_DATABASE_URL=sqlite:////app/data/langflow.db
+ENV LANGFLOW_FRONTEND_PATH=/app/src/backend/base/langflow/frontend
 
 EXPOSE 7860
 
-# Run using the local package entry point
-CMD ["langflow", "run"]
+# Run using the startup script
+CMD ["/app/start.sh"]

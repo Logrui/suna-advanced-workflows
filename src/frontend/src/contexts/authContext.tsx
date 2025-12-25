@@ -14,8 +14,11 @@ import {
   getExternalRefreshToken,
   getExternalToken,
   notifyParent,
+  storeSunaToken,
 } from "@/utils/iframe-mode";
 import { setLocalStorage } from "@/utils/local-storage-util";
+// Import suna-api-client to trigger early initialization and expose window.__DEBUG_SUNA_API__
+import "@/lib/suna-api-client";
 import { useStoreStore } from "../stores/storeStore";
 import type { Users } from "../types/api";
 import type { AuthContextType } from "../types/contexts/auth";
@@ -75,6 +78,10 @@ export function AuthProvider({ children }): React.ReactElement {
     if (externalToken) {
       console.log("[AuthContext] External token detected, authenticating...");
 
+      // Store the Suna token for later API calls (e.g., Composio profiles)
+      // This must be done BEFORE cleaning the URL
+      storeSunaToken();
+
       // Clean the URL to remove token params
       cleanTokenFromUrl();
 
@@ -123,6 +130,7 @@ export function AuthProvider({ children }): React.ReactElement {
     let retryCount = 0;
     const MAX_RETRIES = 20;
 
+    //suna-advanced-workflows:start
     const checkAndSetAuthenticated = () => {
       if (userLoaded && variablesLoaded) {
         setIsAuthenticated(true);
@@ -130,7 +138,7 @@ export function AuthProvider({ children }): React.ReactElement {
         notifyParent("advanced-workflows:ready");
       }
     };
-
+    //suna-advanced-workflows:end
     const executeAuthRequests = () => {
       mutateLoggedUser(
         {},

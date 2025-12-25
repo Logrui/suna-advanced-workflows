@@ -10,6 +10,7 @@ from langflow.schema.serialize import UUIDstr
 
 if TYPE_CHECKING:
     from langflow.services.database.models.api_key.model import ApiKey
+    from langflow.services.database.models.composio_profile.model import ComposioProfile
     from langflow.services.database.models.flow.model import Flow
     from langflow.services.database.models.folder.model import Folder
     from langflow.services.database.models.variable.model import Variable
@@ -43,6 +44,10 @@ class User(SQLModel, table=True):  # type: ignore[call-arg]
         sa_relationship_kwargs={"cascade": "delete"},
     )
     folders: list["Folder"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "delete"},
+    )
+    composio_profiles: list["ComposioProfile"] = Relationship(
         back_populates="user",
         sa_relationship_kwargs={"cascade": "delete"},
     )

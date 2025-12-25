@@ -1,12 +1,6 @@
 ---
 description: "Guidelines for testing Langflow components and backend code, with emphasis on async patterns and robust, well-documented testing practices."
-globs:
-  - "src/backend/tests/**/*.py"
-  - "src/frontend/**/*.test.{ts,tsx,js,jsx}"
-  - "src/frontend/**/*.spec.{ts,tsx,js,jsx}"
-  - "tests/**/*.py"
-  - "conftest.py"
-  - "pytest.ini"
+globs: "src/backend/tests/**/*.py", "src/frontend/**/*.test.{ts,tsx,js,jsx}", "src/frontend/**/*.spec.{ts,tsx,js,jsx}", "tests/**/*.py", "conftest.py", "pytest.ini"
 alwaysApply: false
 ---
 

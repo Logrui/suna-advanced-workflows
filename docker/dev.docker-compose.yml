@@ -1,13 +1,13 @@
 networks:
-  dev-langflow:
+  dev-suna-advanced-workflows:
 
 services:
-  dev-langflow:
+  dev-suna-advanced-workflows:
     build:
       context: ..
       dockerfile: docker/dev.Dockerfile
-    image: dev-langflow
-    container_name: dev-langflow
+    image: dev-suna-advanced-workflows
+    container_name: dev-suna-advanced-workflows
     restart: always
     ports:
       - "7861:7860"
@@ -31,7 +31,7 @@ services:
     depends_on:
       - postgres
     networks:
-      -  dev-langflow
+      -  dev-suna-advanced-workflows
 
   postgres:
     container_name: postgres
@@ -43,7 +43,7 @@ services:
     ports:
       - "5438:5432"
     networks:
-      -  dev-langflow
+      -  dev-suna-advanced-workflows
 
 volumes:
   langflow_venv:

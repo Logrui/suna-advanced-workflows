@@ -12,6 +12,7 @@ import { BuildStatus } from "@/constants/enums";
 import { usePostTemplateValue } from "@/controllers/API/queries/nodes/use-post-template-value";
 import { track } from "@/customization/utils/analytics";
 import { customOpenNewTab } from "@/customization/utils/custom-open-new-tab";
+import ComposioProfilesModal from "@/modals/composioProfilesModal";
 import useAlertStore from "@/stores/alertStore";
 import { useDarkStore } from "@/stores/darkStore";
 import useFlowStore from "@/stores/flowStore";
@@ -68,6 +69,13 @@ export default function NodeStatus({
   const nodeAuth = Object.values(data.node?.template ?? {}).find(
     (value) => value.type === "auth",
   );
+
+  // Check if this node has a Composio profiles modal field (indicates it's a Composio component)
+  const hasComposioProfiles = Object.values(data.node?.template ?? {}).some(
+    (value) => value.type === "composio_profiles_modal",
+  );
+
+  const [isProfilesModalOpen, setIsProfilesModalOpen] = useState(false);
 
   const connectionLink = nodeAuth?.value;
   const apiKeyValue = (data.node?.template as any)?.api_key?.value ?? "";
@@ -150,7 +158,7 @@ export default function NodeStatus({
             postTemplateValue,
             setErrorData,
             nodeAuth?.name ?? "auth_link",
-            () => {},
+            () => { },
             data.node.tool_mode,
           );
         }, POLLING_INTERVAL);
@@ -313,7 +321,7 @@ export default function NodeStatus({
     "h-3.5 w-3.5 transition-all group-hover/node:opacity-100",
     isHovered ? "text-foreground" : "text-muted-foreground",
     BuildStatus.BUILDING === buildStatus &&
-      (isHovered ? "text-status-red" : "animate-spin"),
+    (isHovered ? "text-status-red" : "animate-spin"),
   );
 
   const getTooltipContent = () => {
@@ -341,18 +349,18 @@ export default function NodeStatus({
     isAuthenticated: boolean,
     isPolling: boolean,
   ): string => {
-    return cn(
-      "nodrag button-run-bg group relative h-4 w-4 p-0.5 rounded-sm border border-accent-amber-foreground transition-colors hover:bg-accent-amber",
-      connectionLink === "error"
-        ? "border-destructive text-destructive"
-        : isAuthenticated && !isPolling
-          ? "border-accent-emerald-foreground hover:border-accent-amber-foreground"
-          : "",
-      connectionLink === "" &&
+      return cn(
+        "nodrag button-run-bg group relative h-4 w-4 p-0.5 rounded-sm border border-accent-amber-foreground transition-colors hover:bg-accent-amber",
+        connectionLink === "error"
+          ? "border-destructive text-destructive"
+          : isAuthenticated && !isPolling
+            ? "border-accent-emerald-foreground hover:border-accent-amber-foreground"
+            : "",
+        connectionLink === "" &&
         (!apiKeyValue || apiKeyValue === "COMPOSIO_API_KEY") &&
         "cursor-not-allowed opacity-50",
-    );
-  };
+      );
+    };
 
   const getConnectionIconClasses: (
     connectionLink: string,
@@ -363,17 +371,17 @@ export default function NodeStatus({
     isAuthenticated: boolean,
     isPolling: boolean,
   ): string => {
-    return cn(
-      "transition-opacity h-2.5 w-2.5",
-      connectionLink === "error"
-        ? "text-destructive"
-        : isAuthenticated && !isPolling
-          ? "text-accent-emerald-foreground"
-          : "text-accent-amber-foreground",
-      isPolling && "animate-spin",
-      isAuthenticated && !isPolling ? "group-hover:opacity-0" : "",
-    );
-  };
+      return cn(
+        "transition-opacity h-2.5 w-2.5",
+        connectionLink === "error"
+          ? "text-destructive"
+          : isAuthenticated && !isPolling
+            ? "text-accent-emerald-foreground"
+            : "text-accent-amber-foreground",
+        isPolling && "animate-spin",
+        isAuthenticated && !isPolling ? "group-hover:opacity-0" : "",
+      );
+    };
 
   const getDataTestId = () => {
     if (isAuthenticated && !isPolling) {
@@ -485,6 +493,31 @@ export default function NodeStatus({
               </div>
             </ShadTooltip>
           )}
+
+          {/* Manage Profiles Button - Only for Composio nodes */}
+          {hasComposioProfiles && showNode && (
+            <ShadTooltip content="Manage Composio Profiles">
+              <div>
+                <Button
+                  unstyled
+                  className={cn(
+                    "nodrag button-run-bg group relative h-4 w-4 p-0.5 rounded-sm border transition-colors",
+                    "border-purple-500/60 hover:border-purple-400 hover:bg-purple-500/20",
+                  )}
+                  onClick={() => setIsProfilesModalOpen(true)}
+                  data-testid={`button_manage_profiles_${display_name.toLowerCase()}`}
+                >
+                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                    <IconComponent
+                      name="Users"
+                      className="h-2.5 w-2.5 text-purple-400 transition-colors group-hover:text-purple-300"
+                      strokeWidth={ICON_STROKE_WIDTH}
+                    />
+                  </div>
+                </Button>
+              </div>
+            </ShadTooltip>
+          )}
         </div>
       )}
       {showNode && (
@@ -506,6 +539,14 @@ export default function NodeStatus({
             </Button>
           </div>
         </ShadTooltip>
+      )}
+
+      {/* Composio Profiles Modal */}
+      {hasComposioProfiles && (
+        <ComposioProfilesModal
+          open={isProfilesModalOpen}
+          setOpen={setIsProfilesModalOpen}
+        />
       )}
     </div>
   );

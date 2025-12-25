@@ -134,11 +134,21 @@ function ApiInterceptor() {
 
     // Check for external url which we don't want to add custom headers to
     const isExternalURL = (url: string): boolean => {
+      // Get Suna backend URL from env (for External Composio Profiles integration)
+      const sunaBackendUrl = import.meta.env?.VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL || "";
+      const sunaBackendOrigin = sunaBackendUrl ? new URL(sunaBackendUrl).origin : "";
+
       const EXTERNAL_DOMAINS = [
         "https://raw.githubusercontent.com",
         "https://api.github.com",
         "https://api.segment.io",
         "https://cdn.sprig.com",
+        // Suna Kortix backend - don't override Authorization header for cross-origin API calls
+        // These calls use the Suna JWT token, not Langflow's token
+        ...(sunaBackendOrigin ? [sunaBackendOrigin] : []),
+        // Also allow common Suna deployments
+        "https://api.suna.syhc.dev",
+        "https://api.kortix.com",
       ];
 
       try {
@@ -148,6 +158,7 @@ function ApiInterceptor() {
         return false;
       }
     };
+
 
     // Request interceptor to add access token to every request
     const requestInterceptor = api.interceptors.request.use(

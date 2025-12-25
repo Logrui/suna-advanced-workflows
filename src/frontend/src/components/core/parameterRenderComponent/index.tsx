@@ -1,4 +1,6 @@
 import type { handleOnNewValueType } from "@/CustomNodes/hooks/use-handle-new-value";
+import AuthComponent from "@/components/core/parameterRenderComponent/components/authComponent";
+import ComposioProfilesModalTrigger from "@/components/core/parameterRenderComponent/components/composioProfilesModalTrigger";
 import CodeAreaComponent from "@/components/core/parameterRenderComponent/components/codeAreaComponent";
 import ModelInputComponent from "@/components/core/parameterRenderComponent/components/modelInputComponent";
 import SliderComponent from "@/components/core/parameterRenderComponent/components/sliderComponent";
@@ -23,6 +25,7 @@ import SortableListComponent from "./components/sortableListComponent";
 import { StrRenderComponent } from "./components/strRenderComponent";
 import ToolsComponent from "./components/ToolsComponent";
 import ToggleShadComponent from "./components/toggleShadComponent";
+import SunaProfileSelectorComponent from "./components/sunaProfileSelectorComponent";
 import type { InputProps, NodeInfoType } from "./types";
 
 export function ParameterRenderComponent({
@@ -40,8 +43,8 @@ export function ParameterRenderComponent({
   nodeInformationMetadata,
 }: {
   handleOnNewValue:
-    | handleOnNewValueType
-    | ((value: string, key: string) => void);
+  | handleOnNewValueType
+  | ((value: string, key: string) => void);
   name: string;
   nodeId: string;
   templateData: Partial<InputFieldType>;
@@ -79,6 +82,21 @@ export function ParameterRenderComponent({
       nodeInformationMetadata,
       hasRefreshButton: templateData.refresh_button,
     };
+
+    // Special case: Suna profile selector for External Profiles mode
+    // This component handles fetching profiles from Suna Kortix and updating
+    // multiple template fields (external_profile_id, external_mcp_url, etc.)
+    if (name === "suna_profile_selector") {
+      return (
+        <SunaProfileSelectorComponent
+          {...baseInputProps}
+          nodeClass={nodeClass}
+          handleNodeClass={handleNodeClass}
+          helperText={templateData.helper_text}
+          id={`suna_profile_${id}`}
+        />
+      );
+    }
 
     if (TEXT_FIELD_TYPES.includes(templateData.type ?? "")) {
       if (templateData.list) {
@@ -300,6 +318,20 @@ export function ParameterRenderComponent({
             options={templateData?.options || []}
             placeholder={templateData?.placeholder}
             externalOptions={templateData?.external_options}
+          />
+        );
+      case "auth":
+        return (
+          <AuthComponent
+            {...baseInputProps}
+            id={`auth_${id}`}
+          />
+        );
+      case "composio_profiles_modal":
+        return (
+          <ComposioProfilesModalTrigger
+            {...baseInputProps}
+            id={`composio-profiles-modal-${id}`}
           />
         );
       default:
