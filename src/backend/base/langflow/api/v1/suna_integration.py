@@ -75,10 +75,10 @@ async def ensure_suna_project(
 
     This enables 1:1 mapping: Suna Agent ID == Langflow Project ID
     """
-    print(f"DEBUG_SUNA: ensure-project called: suna_agent_id={request.suna_agent_id}, name={request.name}, user={current_user.id}", flush=True)
+    await logger.adebug(f"DEBUG_SUNA: ensure-project called: suna_agent_id={request.suna_agent_id}, name={request.name}, user={current_user.id}")
     try:
         # Check if project already exists with this ID
-        print(f"DEBUG_SUNA: Checking if project exists: id={request.suna_agent_id}, user_id={current_user.id}", flush=True)
+        await logger.adebug(f"DEBUG_SUNA: Checking if project exists: id={request.suna_agent_id}, user_id={current_user.id}")
         existing_project = (
             await session.exec(
                 select(Folder).where(
@@ -87,7 +87,7 @@ async def ensure_suna_project(
                 )
             )
         ).first()
-        print(f"DEBUG_SUNA: existing_project query result: {existing_project}", flush=True)
+        await logger.adebug(f"DEBUG_SUNA: existing_project query result: {existing_project}")
 
         if existing_project:
             await logger.ainfo(
@@ -165,10 +165,10 @@ async def ensure_suna_flow(
 
     This enables 1:1 mapping: Suna Workflow ID == Langflow Flow ID
     """
-    print(f"DEBUG_SUNA: ensure-flow called: suna_workflow_id={request.suna_workflow_id}, suna_agent_id={request.suna_agent_id}, user={current_user.id}", flush=True)
+    await logger.adebug(f"DEBUG_SUNA: ensure-flow called: suna_workflow_id={request.suna_workflow_id}, suna_agent_id={request.suna_agent_id}, user={current_user.id}")
     try:
         # Check if flow already exists with this ID
-        print(f"DEBUG_SUNA: Checking if flow exists: id={request.suna_workflow_id}, user_id={current_user.id}", flush=True)
+        await logger.adebug(f"DEBUG_SUNA: Checking if flow exists: id={request.suna_workflow_id}, user_id={current_user.id}")
         existing_flow = (
             await session.exec(
                 select(Flow).where(
@@ -177,7 +177,7 @@ async def ensure_suna_flow(
                 )
             )
         ).first()
-        print(f"DEBUG_SUNA: existing_flow query result: {existing_flow}", flush=True)
+        await logger.adebug(f"DEBUG_SUNA: existing_flow query result: {existing_flow}")
 
         if existing_flow:
             await logger.ainfo(
@@ -270,3 +270,30 @@ async def ensure_suna_flow(
 async def suna_integration_health():
     """Health check for Suna integration endpoints."""
     return {"status": "ok", "message": "Suna integration endpoints are available"}
+
+
+@router.get("/env-audit")
+async def suna_env_audit():
+    """
+    Debug endpoint to verify runtime environment variables.
+    Only exposes safe config flags, not secrets.
+    Access via: GET /api/v1/suna/env-audit
+    """
+    import os
+    
+    return {
+        "runtime_config": {
+            "LANGFLOW_DEV": os.getenv("LANGFLOW_DEV", "[NOT SET]"),
+            "LFX_DEV": os.getenv("LFX_DEV", "[NOT SET]"),
+            "LANGFLOW_AUTO_LOGIN": os.getenv("LANGFLOW_AUTO_LOGIN", "[NOT SET]"),
+            "LANGFLOW_ALEMBIC_LOG_TO_STDOUT": os.getenv("LANGFLOW_ALEMBIC_LOG_TO_STDOUT", "[NOT SET]"),
+            "COMPOSIO_MODE": os.getenv("COMPOSIO_MODE", "[NOT SET]"),
+            "LANGFLOW_CORS_ORIGINS": os.getenv("LANGFLOW_CORS_ORIGINS", "[NOT SET]"),
+            "LANGFLOW_CORS_ALLOW_CREDENTIALS": os.getenv("LANGFLOW_CORS_ALLOW_CREDENTIALS", "[NOT SET]"),
+        },
+        "secrets_configured": {
+            "COMPOSIO_API_KEY": "✓ Set" if os.getenv("COMPOSIO_API_KEY") else "✗ NOT SET",
+            "LANGFLOW_SECRET_KEY": "✓ Set" if os.getenv("LANGFLOW_SECRET_KEY") else "✗ NOT SET",
+        },
+        "message": "Use this endpoint to verify runtime env vars are being passed from .env"
+    }

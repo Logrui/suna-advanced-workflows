@@ -7,15 +7,37 @@ WORKDIR /build
 
 # Build arguments for Vite environment variables
 # These must be passed during `docker build` or via docker-compose build args
+# CRITICAL: These get BAKED INTO the JavaScript bundle at build time
 ARG VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL=""
+ARG BACKEND_URL="http://localhost:7860"
+ARG LANGFLOW_AUTO_LOGIN="false"
+ARG LANGFLOW_MCP_COMPOSER_ENABLED="true"
 
 # Expose as environment variables for Vite to pick up during build
+# vite.config.mts reads these via dotenv or process.env
 ENV VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL=${VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL}
+ENV BACKEND_URL=${BACKEND_URL}
+ENV LANGFLOW_AUTO_LOGIN=${LANGFLOW_AUTO_LOGIN}
+ENV LANGFLOW_MCP_COMPOSER_ENABLED=${LANGFLOW_MCP_COMPOSER_ENABLED}
 
 COPY src/frontend/package*.json ./
 RUN npm ci
 COPY src/frontend/ ./
-# Build the production assets (Vite will bake VITE_* env vars into the bundle)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BUILD-TIME VARIABLE AUDIT
+# These values are BAKED INTO the JavaScript bundle - visible in build output
+# ═══════════════════════════════════════════════════════════════════════════════
+RUN echo "╔══════════════════════════════════════════════════════════════════════╗" && \
+    echo "║ 🔍 BUILD-TIME ENVIRONMENT VARIABLES AUDIT                          ║" && \
+    echo "╠══════════════════════════════════════════════════════════════════════╣" && \
+    echo "║ VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL: ${VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL:-[NOT SET]}" && \
+    echo "║ BACKEND_URL: ${BACKEND_URL:-[NOT SET]}" && \
+    echo "║ LANGFLOW_AUTO_LOGIN: ${LANGFLOW_AUTO_LOGIN:-[NOT SET]}" && \
+    echo "║ LANGFLOW_MCP_COMPOSER_ENABLED: ${LANGFLOW_MCP_COMPOSER_ENABLED:-[NOT SET]}" && \
+    echo "╚══════════════════════════════════════════════════════════════════════╝"
+
+# Build the production or staging assets (Vite will bake env vars into the bundle via define:{})
 RUN npm run build
 
 ################################

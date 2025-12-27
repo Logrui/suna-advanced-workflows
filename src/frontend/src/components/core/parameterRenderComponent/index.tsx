@@ -26,6 +26,7 @@ import { StrRenderComponent } from "./components/strRenderComponent";
 import ToolsComponent from "./components/ToolsComponent";
 import ToggleShadComponent from "./components/toggleShadComponent";
 import SunaProfileSelectorComponent from "./components/sunaProfileSelectorComponent";
+import SunaOpenProfileModalButtonComponent from "./components/sunaOpenProfileModalButtonComponent";
 import type { InputProps, NodeInfoType } from "./types";
 
 export function ParameterRenderComponent({
@@ -94,6 +95,18 @@ export function ParameterRenderComponent({
           handleNodeClass={handleNodeClass}
           helperText={templateData.helper_text}
           id={`suna_profile_${id}`}
+        />
+      );
+    }
+
+    // Special case: "Open in Suna" button for External Profiles mode
+    // This button triggers the parent window to open the profile management modal
+    if (name === "open_in_suna") {
+      return (
+        <SunaOpenProfileModalButtonComponent
+          {...baseInputProps}
+          helperText={templateData.helper_text}
+          id={`open_in_suna_${id}`}
         />
       );
     }

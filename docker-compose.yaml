@@ -1,63 +1,105 @@
-# This is a full source build of Suna Advanced Workflows baked into one Docker service serving at 7860 internally
+# Suna Advanced Workflows - Docker Compose with Profiles
+#
+# USAGE:
+#   Staging:  docker compose up -d --build (fully isolated build)
+#   Development: docker compose --profile dev up -d --build (mounts source code for hot reload (restart container to pick up Python changes))
+#
+# Default behavior (no profile flag) runs staging via COMPOSE_PROFILES in .env
+#
+# ENVIRONMENT VARIABLES:
+#   All config is loaded from .env via env_file directive.
+#   The environment: sections below only set Docker-specific overrides (like LANGFLOW_DATABASE_URL).
 
 networks:
   suna-advanced-workflows:
 
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # YAML ANCHORS - DRY configuration shared between staging and dev
+    # ═══════════════════════════════════════════════════════════════════════════════
+x-common-env:
+  # Database - must override .env for Docker networking
+  &common-env
+  LANGFLOW_DATABASE_URL: postgresql://langflow:langflow@suna-advanced-workflows-postgres:5432/langflow
+  # Config directory inside container
+  LANGFLOW_CONFIG_DIR: /app/langflow
+
 services:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # STAGING - Staging environment built from source code in isolated Docker Container
+  # Runs by default (COMPOSE_PROFILES=staging in .env)
+  # ═══════════════════════════════════════════════════════════════════════════════
   suna-advanced-workflows:
+    profiles: [ "staging" ]
     image: suna-advanced-workflows
     container_name: suna-advanced-workflows
     build:
       context: .
       args:
-        # Pass Vite environment variables to the Docker build
-        # These are baked into the frontend JavaScript bundle at build time
+        # Build-time variables for Vite (baked into frontend JS bundle)
+        # These MUST be set here - .env is not available during build
         VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL: ${VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL:-https://api.suna.syhc.dev/v1}
+        BACKEND_URL: ${BACKEND_URL:-http://localhost:7860}
+        LANGFLOW_AUTO_LOGIN: ${LANGFLOW_AUTO_LOGIN:-false}
+        LANGFLOW_MCP_COMPOSER_ENABLED: ${LANGFLOW_MCP_COMPOSER_ENABLED:-true}
     ports:
       - "3001:7860"
+    # Load ALL runtime config from .env (CORS, API keys, etc.)
     env_file:
       - .env
     depends_on:
       - suna-advanced-workflows-postgres
+    # Only override what MUST differ inside Docker (database URL, config dir)
     environment:
-      # ─────────────────────────────────────────────────────────────────────────
-      # Database
-      # ─────────────────────────────────────────────────────────────────────────
-      - LANGFLOW_DATABASE_URL=postgresql://langflow:langflow@suna-advanced-workflows-postgres:5432/langflow
-      
-      # ─────────────────────────────────────────────────────────────────────────
-      # Langflow Config
-      # ─────────────────────────────────────────────────────────────────────────
-      - LANGFLOW_CONFIG_DIR=/app/langflow
-      - LANGFLOW_DEV=false
-      - LFX_DEV=yes
-      - LANGFLOW_ALEMBIC_LOG_TO_STDOUT=false
-      - LANGFLOW_ALEMBIC_LOG_LEVEL=false
-      # Secret key for encrypting API keys and global variables (Fernet encryption)
-      # IMPORTANT: Keep this consistent across restarts to decrypt stored variables
-      - LANGFLOW_SECRET_KEY=nk0vHEUbDupLwCly8yOR2azgaWUlDvYnodUPqmYSMpE
-      
-      # ─────────────────────────────────────────────────────────────────────────
-      # Composio External Profiles (Backend reads these at runtime)
-      # ─────────────────────────────────────────────────────────────────────────
-      - COMPOSIO_MODE=${COMPOSIO_MODE:-EXTERNAL_PROFILES}
-      - COMPOSIO_API_KEY=${COMPOSIO_API_KEY}
-      
-      # ─────────────────────────────────────────────────────────────────────────
-      # CORS - Allow Suna Kortix frontend/backend to communicate with Langflow
-      # ─────────────────────────────────────────────────────────────────────────
-      # Comma-separated list of allowed origins for cross-origin requests
-      - LANGFLOW_CORS_ORIGINS=${LANGFLOW_CORS_ORIGINS}
-      - LANGFLOW_CORS_ALLOW_CREDENTIALS=true
-      
-      # NOTE: VITE_* variables are NOT needed here - they are baked into the 
-      # frontend JavaScript bundle at build time via build.args above
-      
+      <<: *common-env
     volumes:
       - langflow-data:/app/langflow
     networks:
       - suna-advanced-workflows
-  
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # DEVELOPMENT - Development environment with volume-mounted source code
+  # Mounts source code for hot reload (restart to pick up Python changes)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  dev-suna-advanced-workflows:
+    profiles: [ "dev" ]
+    image: suna-advanced-workflows-dev
+    container_name: dev-suna-advanced-workflows
+    build:
+      context: .
+      dockerfile: docker/dev.Dockerfile
+      args:
+        # Build-time variables for Vite (baked into frontend JS bundle)
+        VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL: ${VITE_EXTERNAL_COMPOSIO_PROFILES_BACKEND_URL:-https://api.suna.syhc.dev/v1}
+        BACKEND_URL: ${BACKEND_URL:-http://localhost:7860}
+        LANGFLOW_AUTO_LOGIN: ${LANGFLOW_AUTO_LOGIN:-false}
+        LANGFLOW_MCP_COMPOSER_ENABLED: ${LANGFLOW_MCP_COMPOSER_ENABLED:-true}
+    ports:
+      - "3001:7860"
+    # Load ALL runtime config from .env (CORS, API keys, etc.)
+    env_file:
+      - .env
+    depends_on:
+      - suna-advanced-workflows-postgres
+    # Only override what MUST differ inside Docker
+    environment:
+      <<: *common-env
+      # Dev-specific: prevent .pyc file creation for cleaner volume mounts
+      PYTHONDONTWRITEBYTECODE: 1
+    volumes:
+      # Source code mount for hot reload
+      - ./:/app
+      # Named volumes for build artifacts (prevents host overwriting)
+      - langflow-dev-venv:/app/.venv
+      - langflow-dev-frontend-node-modules:/app/src/frontend/node_modules
+      - langflow-dev-frontend-build:/app/src/frontend/build
+      # Data persistence
+      - langflow-data:/app/langflow
+    networks:
+      - suna-advanced-workflows
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # POSTGRES (always shared by all profiles)
+  # ═══════════════════════════════════════════════════════════════════════════════
   suna-advanced-workflows-postgres:
     image: pgvector/pgvector:pg16
     container_name: suna-advanced-workflows-postgres
@@ -74,4 +116,8 @@ services:
 
 volumes:
   langflow-data:
-  postgres-data:
+  postgres-data: # Dev-only volume mounts
+
+  langflow-dev-venv:
+  langflow-dev-frontend-node-modules:
+  langflow-dev-frontend-build:

@@ -36,25 +36,36 @@ disable_component_in_astra_cloud_msg = (
     "Please use local storage mode or cloud-based versions of the tools."
 )
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODULE-LEVEL COMPOSIO MODE CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPOSIO_MODE env var controls authentication flow:
+# - "OAUTH" (default): Standard OAuth flow with API key and connection profiles
+# - "EXTERNAL_PROFILES": Use external profiles from Suna Kortix (no local OAuth)
+#
+# When EXTERNAL_PROFILES is enabled:
+# - api_key input is hidden (uses env var COMPOSIO_API_KEY for schema fetching)
+# - auth_link is hidden (no OAuth flow)
+# - connection_profile is replaced with suna_profile_selector
+# - execute_action uses mcp_url for direct HTTP calls instead of SDK
+#
+# These are defined at MODULE LEVEL so they're available to all classes
+# that inherit from ComposioBaseComponent during class body evaluation.
+# ═══════════════════════════════════════════════════════════════════════════════
+COMPOSIO_MODE: str = os.getenv("COMPOSIO_MODE", "OAUTH").upper()
+IS_EXTERNAL_PROFILES_MODE: bool = COMPOSIO_MODE == "EXTERNAL_PROFILES"
+
+# OAuth-specific inputs to hide in EXTERNAL_PROFILES mode
+# Defined at module level for access by all Composio component classes
+_OAUTH_INPUTS_TO_HIDE: set[str] = {"api_key", "auth_link", "auth_mode", "connection_profile", "manage_profiles"}
 
 class ComposioBaseComponent(Component):
     """Base class for Composio components with common functionality."""
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # COMPOSIO MODE CONFIGURATION
-    # ═══════════════════════════════════════════════════════════════════════════
-    # COMPOSIO_MODE env var controls authentication flow:
-    # - "OAUTH" (default): Standard OAuth flow with API key and connection profiles
-    # - "EXTERNAL_PROFILES": Use external profiles from Suna Kortix (no local OAuth)
-    #
-    # When EXTERNAL_PROFILES is enabled:
-    # - api_key input is hidden (uses env var COMPOSIO_API_KEY for schema fetching)
-    # - auth_link is hidden (no OAuth flow)
-    # - connection_profile is replaced with suna_profile_selector
-    # - execute_action uses mcp_url for direct HTTP calls instead of SDK
-    # ═══════════════════════════════════════════════════════════════════════════
-    COMPOSIO_MODE: str = os.getenv("COMPOSIO_MODE", "OAUTH").upper()
-    IS_EXTERNAL_PROFILES_MODE: bool = COMPOSIO_MODE == "EXTERNAL_PROFILES"
+    # Reference module-level constants for convenience
+    # (actual values are defined at module level for proper scoping)
+    COMPOSIO_MODE = COMPOSIO_MODE  # noqa: F811 - intentional reference to module var
+    IS_EXTERNAL_PROFILES_MODE = IS_EXTERNAL_PROFILES_MODE  # noqa: F811
 
     default_tools_limit: int = 5
 
@@ -390,6 +401,15 @@ class ComposioBaseComponent(Component):
             advanced=False,
         ),
         StrInput(
+            name="open_in_suna",
+            display_name="Open in Suna",
+            field_type="suna_open_profile_modal_button",  # Custom field type for postMessage button
+            show=True,
+            required=False,
+            value="",
+            helper_text="Open Suna Kortix to manage Composio profiles (via postMessage bridge)",
+        ),
+        StrInput(
             name="external_profile_id",
             display_name="Profile ID",
             value="",
@@ -443,12 +463,12 @@ class ComposioBaseComponent(Component):
     ]
 
     # Use mode-filtered inputs based on COMPOSIO_MODE env var
+    # Uses module-level constants for proper scoping during class body evaluation
     # In EXTERNAL_PROFILES mode: hides api_key, auth_mode, auth_link, connection_profile
     # and shows suna_profile_selector instead
     if IS_EXTERNAL_PROFILES_MODE:
         # Filter out OAuth-specific inputs and add external profile inputs
-        _oauth_inputs_to_hide = {"api_key", "auth_link", "auth_mode", "connection_profile", "manage_profiles"}
-        inputs = [inp for inp in _base_inputs if inp.name not in _oauth_inputs_to_hide] + list(_external_profile_inputs)
+        inputs = [inp for inp in _base_inputs if inp.name not in _OAUTH_INPUTS_TO_HIDE] + list(_external_profile_inputs)
     else:
         inputs = list(_base_inputs)
 

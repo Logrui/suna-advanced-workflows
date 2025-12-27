@@ -18,7 +18,7 @@
  * These values are persisted with the flow and used during execution.
  */
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
     AlertCircle,
     CheckCircle2,
@@ -140,30 +140,9 @@ export default function SunaProfileSelectorComponent({
     }, []);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PostMessage Bridge - Listen for messages from Suna parent
+    // Ref for loadProfiles to avoid stale closure in message listener
     // ═══════════════════════════════════════════════════════════════════════════
-    useEffect(() => {
-        if (!isInIframe()) return;
-
-        const handleMessage = (event: MessageEvent) => {
-            // Validate origin (in production, verify against known Suna origins)
-            const message = event.data as SunaMessage;
-
-            if (!message?.type) return;
-
-            switch (message.type) {
-                case SUNA_MESSAGE_TYPES.PROFILES_UPDATED:
-                case SUNA_MESSAGE_TYPES.MODAL_CLOSED:
-                    console.log("[SunaProfileSelector] Received profile update signal from parent");
-                    // Refresh profiles from Suna API
-                    loadProfiles(true);
-                    break;
-            }
-        };
-
-        window.addEventListener("message", handleMessage);
-        return () => window.removeEventListener("message", handleMessage);
-    }, []);
+    const loadProfilesRef = useRef<((forceRefresh?: boolean) => Promise<void>) | null>(null);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // Open Suna Profile Management Modal (via postMessage)
@@ -245,12 +224,63 @@ export default function SunaProfileSelectorComponent({
         }
     }, [isAvailable, toolkitSlug]);
 
+    // Keep ref updated with latest loadProfiles
+    useEffect(() => {
+        loadProfilesRef.current = loadProfiles;
+    }, [loadProfiles]);
+
     // Load profiles on mount
     useEffect(() => {
         if (isAvailable) {
             loadProfiles();
         }
     }, [isAvailable, loadProfiles]);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PostMessage Bridge - Listen for messages from Suna parent
+    // Uses ref to avoid stale closure while keeping effect stable
+    // ═══════════════════════════════════════════════════════════════════════════
+    useEffect(() => {
+        if (!isInIframe()) {
+            console.log("[SunaProfileSelector] Not in iframe, skipping message listener");
+            return;
+        }
+
+        console.log("[SunaProfileSelector] Setting up postMessage listener for parent updates");
+
+        const handleMessage = (event: MessageEvent) => {
+            // Validate origin (in production, verify against known Suna origins)
+            const message = event.data as SunaMessage;
+
+            if (!message?.type) return;
+
+            // Only handle Suna-specific messages
+            if (!message.type.startsWith('SUNA_')) return;
+
+            console.log("[SunaProfileSelector] Received message from parent:", message.type, message.payload);
+
+            switch (message.type) {
+                case SUNA_MESSAGE_TYPES.PROFILES_UPDATED:
+                case SUNA_MESSAGE_TYPES.MODAL_CLOSED:
+                    console.log("[SunaProfileSelector] Profile update signal - refreshing profiles...");
+                    // Use ref to get latest loadProfiles function
+                    if (loadProfilesRef.current) {
+                        loadProfilesRef.current(true);
+                    } else {
+                        console.warn("[SunaProfileSelector] loadProfiles not yet available");
+                    }
+                    break;
+            }
+        };
+
+        window.addEventListener("message", handleMessage);
+        console.log("[SunaProfileSelector] postMessage listener registered");
+
+        return () => {
+            window.removeEventListener("message", handleMessage);
+            console.log("[SunaProfileSelector] postMessage listener removed");
+        };
+    }, []); // Empty deps - uses ref for loadProfiles
 
     // ═══════════════════════════════════════════════════════════════════════════
     // Handle profile selection - updates multiple template fields
