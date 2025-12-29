@@ -86,7 +86,7 @@ export const ComposioProfileSelector: React.FC<ComposioProfileSelectorProps> = (
               {(() => {
                 const profile = existingProfiles.find(p => p.profile_id === selectedProfileId);
                 if (!profile) return null;
-                
+
                 return (
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div className="flex items-center gap-2">

@@ -60,6 +60,11 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), svgr(), tsconfigPaths()],
     server: {
       port: port,
+      // Allow hosts for Cloudflare tunnel / reverse proxy access
+      // Set VITE_ALLOWED_HOSTS in .env as comma-separated list, or use defaults
+      allowedHosts: env.VITE_ALLOWED_HOSTS
+        ? env.VITE_ALLOWED_HOSTS.split(",").map((h) => h.trim())
+        : ["localhost", "127.0.0.1"],
       proxy: {
         ...proxyTargets,
       },

@@ -391,23 +391,23 @@ class ComposioBaseComponent(Component):
     _external_profile_inputs = [
         DropdownInput(
             name="suna_profile_selector",
-            display_name="Suna Profile",
+            display_name="Kortix Composio Profiles",
             options=[],  # Populated by frontend from Suna API
-            placeholder="Select a Composio profile from Suna",
+            placeholder="Select a Composio profile from Kortix",
             show=True,
             real_time_refresh=True,
-            info="Select a connected profile managed by Suna Kortix",
-            helper_text="Profiles are managed in Suna Kortix. Select one to use its credentials.",
+            info="Select a connected profile managed by Kortix",
+            helper_text="Profiles are managed in Kortix. Select one to use its credentials.",
             advanced=False,
         ),
         StrInput(
             name="open_in_suna",
-            display_name="Open in Suna",
+            display_name="Open in Kortix",
             field_type="suna_open_profile_modal_button",  # Custom field type for postMessage button
             show=True,
             required=False,
             value="",
-            helper_text="Open Suna Kortix to manage Composio profiles (via postMessage bridge)",
+            helper_text="Open Kortix Composio profiles manager",
         ),
         StrInput(
             name="external_profile_id",

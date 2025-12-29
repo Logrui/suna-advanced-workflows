@@ -456,7 +456,7 @@ export default function SunaProfileSelectorComponent({
                             ) : selectedOption?.iconUrl ? (
                                 <img
                                     src={selectedOption.iconUrl}
-                                    alt={selectedOption.toolkit}
+                                    //alt={selectedOption.toolkit}
                                     className="h-4 w-4 rounded object-contain"
                                 />
                             ) : selectedOption ? (
@@ -574,23 +574,6 @@ export default function SunaProfileSelectorComponent({
                     ) : (
                         <RefreshCw className="h-4 w-4" />
                     )}
-                </button>
-
-                {/* Manage Profiles Button (opens Suna modal via postMessage) */}
-                <button
-                    onClick={handleManageProfiles}
-                    disabled={disabled}
-                    className={`
-                        flex h-10 items-center gap-2 rounded-xl border border-primary/30 
-                        bg-primary/5 px-3 text-sm font-medium text-primary backdrop-blur-sm transition-all duration-200
-                        hover:border-primary/50 hover:bg-primary/10
-                        disabled:cursor-not-allowed disabled:opacity-50
-                    `}
-                    title="Manage profiles in Suna"
-                >
-                    <Settings className="h-4 w-4" />
-                    <span className="hidden sm:inline">Manage</span>
-                    <ExternalLink className="h-3 w-3 opacity-60" />
                 </button>
             </div>
 

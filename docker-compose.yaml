@@ -74,7 +74,7 @@ services:
         LANGFLOW_AUTO_LOGIN: ${LANGFLOW_AUTO_LOGIN:-false}
         LANGFLOW_MCP_COMPOSER_ENABLED: ${LANGFLOW_MCP_COMPOSER_ENABLED:-true}
     ports:
-      - "3001:7860"
+      - "3001:3000" # Vite dev server (frontend HMR + API proxy to backend)
     # Load ALL runtime config from .env (CORS, API keys, etc.)
     env_file:
       - .env
