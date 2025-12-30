@@ -57,7 +57,7 @@ IS_EXTERNAL_PROFILES_MODE: bool = COMPOSIO_MODE == "EXTERNAL_PROFILES"
 
 # OAuth-specific inputs to hide in EXTERNAL_PROFILES mode
 # Defined at module level for access by all Composio component classes
-_OAUTH_INPUTS_TO_HIDE: set[str] = {"api_key", "auth_link", "auth_mode", "connection_profile", "manage_profiles"}
+_OAUTH_INPUTS_TO_HIDE: set[str] = {"auth_link", "auth_mode", "connection_profile", "manage_profiles"}
 
 class ComposioBaseComponent(Component):
     """Base class for Composio components with common functionality."""
@@ -403,8 +403,8 @@ class ComposioBaseComponent(Component):
         StrInput(
             name="open_in_suna",
             display_name="Open in Kortix",
-            field_type="suna_open_profile_modal_button",  # Custom field type for postMessage button
-            show=True,
+            field_type="suna_open_profile_modal_button",  # Custom field type - detected by NodeStatus for header button
+            show=True,  # Hidden from form, rendered as NodeStatus header button via field_type detection - renabled temporarily for debugging
             required=False,
             value="",
             helper_text="Open Kortix Composio profiles manager",
@@ -467,8 +467,23 @@ class ComposioBaseComponent(Component):
     # In EXTERNAL_PROFILES mode: hides api_key, auth_mode, auth_link, connection_profile
     # and shows suna_profile_selector instead
     if IS_EXTERNAL_PROFILES_MODE:
-        # Filter out OAuth-specific inputs and add external profile inputs
-        inputs = [inp for inp in _base_inputs if inp.name not in _OAUTH_INPUTS_TO_HIDE] + list(_external_profile_inputs)
+        # Filter out OAuth-specific inputs
+        # We keep api_key in the list but set show=False (via copy) so it can be used for schema fetching
+        filtered_base = [copy.deepcopy(inp) for inp in _base_inputs if inp.name not in _OAUTH_INPUTS_TO_HIDE]
+        
+        # Ensure api_key is hidden if present
+        for inp in filtered_base:
+            if inp.name == "api_key":
+                inp.show = False
+        
+        # Find the index of action_button to insert external profile inputs before it
+        # This ensures proper field ordering (Profile -> Action -> Tool fields)
+        try:
+            action_idx = next(i for i, inp in enumerate(filtered_base) if inp.name == "action_button")
+            inputs = filtered_base[:action_idx] + list(_external_profile_inputs) + filtered_base[action_idx:]
+        except StopIteration:
+            # Fallback if action_button not found, just append
+            inputs = filtered_base + list(_external_profile_inputs)
     else:
         inputs = list(_base_inputs)
 
@@ -1726,6 +1741,17 @@ class ComposioBaseComponent(Component):
 
     def update_input_types(self, build_config: dict) -> dict:
         """Normalize input_types to [] wherever None appears in the build_config template."""
+        # Safety enforcement: Ensure specific external profile fields are visible
+        # This prevents them from disappearing if other logic accidentally hides them
+        if self.IS_EXTERNAL_PROFILES_MODE:
+            if "suna_profile_selector" in build_config:
+                build_config["suna_profile_selector"]["show"] = True
+            if "open_in_suna" in build_config:
+                build_config["open_in_suna"]["show"] = True
+                # Inject app_name (toolkit slug) into value for frontend use
+                if hasattr(self, "app_name") and self.app_name:
+                    build_config["open_in_suna"]["value"] = self.app_name.lower()
+
         try:
             for key, value in list(build_config.items()):
                 if isinstance(value, dict):
@@ -1791,25 +1817,28 @@ class ComposioBaseComponent(Component):
             self._populate_actions_data()
             logger.info(f"Actions populated: {len(self._actions_data)} actions found")
             # Also fetch toolkit schema to drive auth UI
+            # Also fetch toolkit schema to drive auth UI
             schema = self._get_toolkit_schema()
-            modes = self._extract_auth_modes_from_schema(schema)
-            self._render_auth_mode_dropdown(build_config, modes)
-            # If a mode is selected (including auto-default), render custom fields when not managed
-            try:
-                selected_mode = (build_config.get("auth_mode") or {}).get("value")
-                managed = (schema or {}).get("composio_managed_auth_schemes") or []
-                # Don't render custom fields if "Composio_Managed" is selected
-                # For API_KEY and other token modes, no fields are needed as they use link method
-                token_modes = ["API_KEY", "BEARER_TOKEN", "BASIC"]
-                if selected_mode and selected_mode not in ["Composio_Managed", *token_modes]:
-                    self._clear_auth_dynamic_fields(build_config)
-                    self._render_custom_auth_fields(build_config, schema or {}, selected_mode)
-                    # Already reordered in _render_custom_auth_fields
-                elif selected_mode in token_modes:
-                    # Clear any existing auth fields for token-based modes
-                    self._clear_auth_dynamic_fields(build_config)
-            except (TypeError, ValueError, AttributeError):
-                pass
+
+            if not self.IS_EXTERNAL_PROFILES_MODE:
+                modes = self._extract_auth_modes_from_schema(schema)
+                self._render_auth_mode_dropdown(build_config, modes)
+                # If a mode is selected (including auto-default), render custom fields when not managed
+                try:
+                    selected_mode = (build_config.get("auth_mode") or {}).get("value")
+                    managed = (schema or {}).get("composio_managed_auth_schemes") or []
+                    # Don't render custom fields if "Composio_Managed" is selected
+                    # For API_KEY and other token modes, no fields are needed as they use link method
+                    token_modes = ["API_KEY", "BEARER_TOKEN", "BASIC"]
+                    if selected_mode and selected_mode not in ["Composio_Managed", *token_modes]:
+                        self._clear_auth_dynamic_fields(build_config)
+                        self._render_custom_auth_fields(build_config, schema or {}, selected_mode)
+                        # Already reordered in _render_custom_auth_fields
+                    elif selected_mode in token_modes:
+                        # Clear any existing auth fields for token-based modes
+                        self._clear_auth_dynamic_fields(build_config)
+                except (TypeError, ValueError, AttributeError):
+                    pass
 
         # CRITICAL: Set action options if we have actions (either from fresh population or cache)
         if self._actions_data:
@@ -1819,15 +1848,17 @@ class ComposioBaseComponent(Component):
             ]
             logger.info(f"Action options set in build_config: {len(build_config['action_button']['options'])} options")
             # Always (re)populate auth_mode as well when actions are available
-            schema = self._get_toolkit_schema()
-            modes = self._extract_auth_modes_from_schema(schema)
-            self._render_auth_mode_dropdown(build_config, modes)
-            
-            # Populate connection profile dropdown with existing connections
-            try:
-                self._populate_connection_profile_dropdown(build_config)
-            except Exception as e:
-                logger.debug(f"Could not populate connection profiles: {e}")
+            # Always (re)populate auth_mode as well when actions are available
+            if not self.IS_EXTERNAL_PROFILES_MODE:
+                schema = self._get_toolkit_schema()
+                modes = self._extract_auth_modes_from_schema(schema)
+                self._render_auth_mode_dropdown(build_config, modes)
+                
+                # Populate connection profile dropdown with existing connections
+                try:
+                    self._populate_connection_profile_dropdown(build_config)
+                except Exception as e:
+                    logger.debug(f"Could not populate connection profiles: {e}")
         else:
             build_config["action_button"]["options"] = []
             logger.warning("No actions found, setting empty options")
@@ -1908,6 +1939,46 @@ class ComposioBaseComponent(Component):
                 build_config.setdefault("action_button", {})
                 build_config["action_button"]["helper_text"] = "Please complete authentication to continue."
                 build_config["action_button"]["helper_text_metadata"] = {"variant": "warning"}
+            return self.update_input_types(build_config)
+
+        # ═══════════════════════════════════════════════════════════════════════════
+        # Handle suna_profile_selector selection (EXTERNAL_PROFILES mode)
+        # When user selects a Kortix profile, enable action selection by clearing
+        # the helper_text that blocks the sortableListComponent from opening
+        # ═══════════════════════════════════════════════════════════════════════════
+        if field_name == "suna_profile_selector" and self.IS_EXTERNAL_PROFILES_MODE:
+            if field_value:
+                logger.info(f"[EXTERNAL_PROFILES] Profile selected: {field_value}")
+
+                # Ensure action options are populated (uses cached data or COMPOSIO_API_KEY)
+                if not self._actions_data:
+                    self._populate_actions_data()
+
+                if self._actions_data:
+                    self._build_action_maps()
+                    build_config.setdefault("action_button", {})
+                    build_config["action_button"]["options"] = [
+                        {"name": self.sanitize_action_name(action), "metadata": action}
+                        for action in self._actions_data
+                    ]
+                    # Clear helper_text to enable the dropdown (sortableListComponent checks this)
+                    build_config["action_button"]["helper_text"] = ""
+                    build_config["action_button"]["helper_text_metadata"] = {}
+                    logger.info(f"[EXTERNAL_PROFILES] Populated {len(self._actions_data)} actions, dropdown enabled")
+                else:
+                    # Actions not available - show warning
+                    build_config.setdefault("action_button", {})
+                    build_config["action_button"]["helper_text"] = "Unable to load actions. Check COMPOSIO_API_KEY."
+                    build_config["action_button"]["helper_text_metadata"] = {"variant": "destructive"}
+                    logger.warning("[EXTERNAL_PROFILES] Could not populate actions - COMPOSIO_API_KEY may be missing")
+            else:
+                # Profile cleared - disable action selection
+                build_config.setdefault("action_button", {})
+                build_config["action_button"]["helper_text"] = "Please select a profile to continue."
+                build_config["action_button"]["helper_text_metadata"] = {"variant": "warning"}
+                build_config["action_button"]["options"] = []
+                logger.info("[EXTERNAL_PROFILES] Profile cleared, action selection disabled")
+
             return self.update_input_types(build_config)
 
         # Handle auth mode change -> render appropriate fields based on schema

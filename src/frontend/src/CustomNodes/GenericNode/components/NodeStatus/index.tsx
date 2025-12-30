@@ -75,6 +75,11 @@ export default function NodeStatus({
     (value) => value.type === "composio_profiles_modal",
   );
 
+  // Check if this node has a Kortix external profiles button (for EXTERNAL_PROFILES mode)
+  const hasKortixProfileButton = Object.values(data.node?.template ?? {}).some(
+    (value) => value.type === "suna_open_profile_modal_button",
+  );
+
   const [isProfilesModalOpen, setIsProfilesModalOpen] = useState(false);
 
   const connectionLink = nodeAuth?.value;
@@ -340,6 +345,21 @@ export default function NodeStatus({
     }
   };
 
+  // Handler for opening Kortix Composio Profiles manager (via postMessage bridge)
+  const handleOpenKortixProfiles = () => {
+    // Extract toolkit slug from node type (e.g., "Gmail" -> "gmail")
+    const toolkitSlug = data.node?.type?.toLowerCase() || '';
+
+    // Use postMessage bridge to communicate with parent Kortix iframe
+    window.parent.postMessage({
+      type: 'SUNA_OPEN_PROFILE_MODAL',
+      payload: {
+        toolkit: toolkitSlug,
+        source: 'langflow-node-header'
+      }
+    }, '*');
+  };
+
   const getConnectionButtonClasses: (
     connectionLink: string,
     isAuthenticated: boolean,
@@ -395,7 +415,7 @@ export default function NodeStatus({
 
   return (
     <div className="flex shrink-0 items-center gap-2">
-      {(showNodeStatus || nodeAuth) && (
+      {(showNodeStatus || nodeAuth || hasKortixProfileButton) && (
         <div className="flex items-center gap-2 self-center">
           {showNodeStatus && (
             <ShadTooltip
@@ -511,6 +531,31 @@ export default function NodeStatus({
                     <IconComponent
                       name="Users"
                       className="h-2.5 w-2.5 text-purple-400 transition-colors group-hover:text-purple-300"
+                      strokeWidth={ICON_STROKE_WIDTH}
+                    />
+                  </div>
+                </Button>
+              </div>
+            </ShadTooltip>
+          )}
+
+          {/* Manage Kortix Composio Profiles Button - For EXTERNAL_PROFILES mode */}
+          {hasKortixProfileButton && showNode && (
+            <ShadTooltip content="Manage Kortix Composio Profiles">
+              <div>
+                <Button
+                  unstyled
+                  className={cn(
+                    "nodrag button-run-bg group relative h-4 w-4 p-0.5 rounded-sm border transition-colors",
+                    "border-emerald-500/50 hover:border-emerald-400 hover:bg-emerald-500/10",
+                  )}
+                  onClick={handleOpenKortixProfiles}
+                  data-testid={`button_kortix_profiles_${display_name.toLowerCase()}`}
+                >
+                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                    <IconComponent
+                      name="UserCircle"
+                      className="h-2.5 w-2.5 text-emerald-400 transition-colors group-hover:text-emerald-300"
                       strokeWidth={ICON_STROKE_WIDTH}
                     />
                   </div>

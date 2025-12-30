@@ -39,6 +39,7 @@ class FieldTypes(str, Enum):
     MCP = "mcp"
     MODEL = "model"
     COMPOSIO_PROFILES_MODAL = "composio_profiles_modal"
+    SUNA_OPEN_PROFILE_MODAL_BUTTON = "suna_open_profile_modal_button"
 
 
 SerializableFieldTypes = Annotated[FieldTypes, PlainSerializer(lambda v: v.value, return_type=str)]

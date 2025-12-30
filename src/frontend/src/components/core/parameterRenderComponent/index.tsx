@@ -347,6 +347,14 @@ export function ParameterRenderComponent({
             id={`composio-profiles-modal-${id}`}
           />
         );
+      case "suna_open_profile_modal_button":
+        return (
+          <SunaOpenProfileModalButtonComponent
+            {...baseInputProps}
+            id={`suna-open-profile-btn-${id}`}
+            toolkitSlug={baseInputProps.value || ""}
+          />
+        );
       default:
         return <EmptyParameterComponent {...baseInputProps} />;
     }
