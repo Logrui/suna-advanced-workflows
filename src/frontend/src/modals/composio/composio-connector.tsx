@@ -33,6 +33,7 @@ import {
   Wrench,
   X,
   Shield,
+  Loader2,
 } from 'lucide-react';
 import {
   useCreateComposioProfile,
@@ -48,17 +49,15 @@ import type {
 } from '@/hooks/composio/utils';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui copy/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { backendApi } from '@/lib/api-client';
 import { composioApi } from '@/hooks/composio/utils';
-import { ComposioToolsSelector } from './composio-tools-selector';
-import { KortixLoader } from '@/components/ui copy/kortix-loader';
 
 interface ComposioConnectorProps {
   app: ComposioToolkit;
@@ -766,7 +765,6 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        hideCloseButton
         className={cn(
           'overflow-hidden gap-0',
           currentStep === Step.ProfileSelect
@@ -779,7 +777,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
         {isSavingTools ? (
           <div className="flex flex-col items-center justify-center py-16 px-6">
             <div className="mb-4">
-              <KortixLoader size="large" />
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
             <h3 className="font-semibold text-lg mb-2">Adding Tools...</h3>
             <p className="text-sm text-muted-foreground text-center">
@@ -1103,7 +1101,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                         >
                           {isSavingTools ? (
                             <>
-                              <KortixLoader customSize={16} />
+                              <Loader2 className="h-4 w-4 animate-spin mr-1" />
                               Adding Tools...
                             </>
                           ) : selectedConnectionType === 'new' ? (
@@ -1158,7 +1156,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                           />
                           <div className="absolute right-2 top-1/2 -translate-y-1/2">
                             {isCheckingName && profileName.length > 0 && (
-                              <KortixLoader customSize={14} />
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             )}
                             {!isCheckingName &&
                               nameAvailability &&
@@ -1207,9 +1205,8 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                       </div>
 
                       {!isLoadingToolkitDetails &&
-                        toolkitDetails?.toolkit
-                          .connected_account_initiation_fields?.required
-                          ?.length > 0 && (
+                        toolkitDetails?.toolkit?.connected_account_initiation_fields?.required &&
+                        toolkitDetails.toolkit.connected_account_initiation_fields.required.length > 0 && (
                           <div className="space-y-2">
                             <div className="flex items-center gap-1.5">
                               <Settings className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1351,7 +1348,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                       >
                         {isCreating ? (
                           <>
-                            <KortixLoader customSize={14} className="mr-1" />
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
                             Creating...
                           </>
                         ) : (
@@ -1403,7 +1400,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                   >
                     {isSavingTools ? (
                       <>
-                        <KortixLoader customSize={16} />
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
                         Adding Tools...
                       </>
                     ) : (

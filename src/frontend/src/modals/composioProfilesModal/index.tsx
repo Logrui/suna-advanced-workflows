@@ -1,6 +1,6 @@
 import React from "react";
 import BaseModal from "../baseModal";
-import { ComposioConnectionsSection } from "./ComposioConnectionsSection";
+import { ComposioRegistry } from "../composio/composio-registry";
 
 interface ComposioProfilesModalProps {
   open: boolean;
@@ -10,7 +10,7 @@ interface ComposioProfilesModalProps {
 /**
  * Modal wrapper for Composio Profile Management
  * - Provides modal container with header and footer
- * - Wraps ComposioConnectionsSection for profile management
+ * - Wraps ComposioRegistry for profile management
  * - Handles modal open/close state
  */
 export function ComposioProfilesModal({
@@ -25,15 +25,18 @@ export function ComposioProfilesModal({
     <BaseModal
       open={open}
       setOpen={setOpen}
-      size="medium-h-full"
+      size="x-large"
       className="composio-profiles-modal"
     >
       <BaseModal.Header description="Manage your Composio integration connections and OAuth profiles">
-        <span className="font-semibold">Composio Connections</span>
+        <span className="font-semibold">App Integrations</span>
       </BaseModal.Header>
 
-      <BaseModal.Content>
-        <ComposioConnectionsSection onClose={handleClose} />
+      <BaseModal.Content className="p-0 overflow-hidden h-full">
+        <ComposioRegistry
+          mode="full"
+          onClose={handleClose}
+        />
       </BaseModal.Content>
     </BaseModal>
   );
