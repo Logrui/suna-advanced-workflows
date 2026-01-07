@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator, Iterator
 from typing import Any, TypeAlias, get_args
 
 from pandas import DataFrame
-from pydantic import Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from lfx.inputs.validators import CoalesceBool
 from lfx.schema.data import Data
@@ -765,6 +765,48 @@ class DefaultPromptField(Input):
     value: Any = ""  # Set the value to empty string
 
 
+class VariablePillsMixin(BaseModel):
+    """Mixin for variable pills input fields."""
+    
+    target_field: str | None = None
+    """Name of the field to insert variables into (e.g., 'playbook')."""
+    
+    target_textarea_id: str | None = None
+    """DOM ID of the textarea to insert variables into for cursor-aware insertion."""
+    
+    variables: list[dict] = Field(default_factory=list)
+    """List of variable definitions: [{'name': 'sender', 'type': 'string', 'description': '...'}]"""
+
+
+class VariablePillsInput(BaseInputMixin, VariablePillsMixin, MetadataTraceMixin, ToolModeMixin):
+    """Represents a variable pills input field for displaying clickable variable badges.
+    
+    This input displays a list of variables as clickable pills/badges that can be
+    inserted into a target field (like a playbook/prompt) when clicked.
+    
+    Attributes:
+        field_type (SerializableFieldTypes): The field type. Defaults to FieldTypes.VARIABLE_PILLS.
+        target_field (str): Name of the field to insert variables into.
+        variables (list[dict]): List of variable definitions with name, type, description.
+    """
+    
+    field_type: SerializableFieldTypes = FieldTypes.VARIABLE_PILLS
+    value: list[dict] = Field(default_factory=list)
+
+
+class PlaybookInput(BaseInputMixin, MultilineMixin, MetadataTraceMixin, ToolModeMixin):
+    """Represents a playbook input field with syntax highlighting and variable awareness.
+    
+    Attributes:
+        field_type (SerializableFieldTypes): The field type. Defaults to FieldTypes.PLAYBOOK.
+        multiline (bool): Whether the input is multiline. Defaults to True.
+    """
+    
+    field_type: SerializableFieldTypes = FieldTypes.PLAYBOOK
+    multiline: bool = True
+    value: str = ""
+
+
 InputTypes: TypeAlias = (
     Input
     | AuthInput
@@ -798,7 +840,10 @@ InputTypes: TypeAlias = (
     | SliderInput
     | DataFrameInput
     | TabInput
+    | VariablePillsInput
+    | PlaybookInput
 )
+
 
 InputTypesMap: dict[str, type[InputTypes]] = {t.__name__: t for t in get_args(InputTypes)}
 

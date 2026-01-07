@@ -229,6 +229,9 @@ async def simple_run_flow_task(
         return result  # noqa: TRY300
 
     except Exception as exc:  # noqa: BLE001
+        import traceback
+        print(f"[WEBHOOK_ERROR] Error running flow {flow.id}: {exc}")
+        print(f"[WEBHOOK_ERROR] Traceback:\n{traceback.format_exc()}")
         await logger.aexception(f"Error running flow {flow.id} task")
         if telemetry_service and start_time is not None:
             await telemetry_service.log_package_run(

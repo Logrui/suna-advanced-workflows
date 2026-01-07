@@ -83,6 +83,9 @@ DIRECT_TYPES = [
     "tools",
     "mcp",
     "model",
+    # Kortix custom field types
+    "variable_pills",
+    "playbook",
 ]
 
 

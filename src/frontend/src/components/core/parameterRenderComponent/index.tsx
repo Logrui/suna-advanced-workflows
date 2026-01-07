@@ -27,6 +27,8 @@ import ToolsComponent from "./components/ToolsComponent";
 import ToggleShadComponent from "./components/toggleShadComponent";
 import SunaProfileSelectorComponent from "./components/sunaProfileSelectorComponent";
 import SunaOpenProfileModalButtonComponent from "./components/sunaOpenProfileModalButtonComponent";
+import VariablePillsComponent from "./components/variablePillsComponent";
+import PlaybookAreaComponent from "./components/playbookComponent";
 import type { InputProps, NodeInfoType } from "./types";
 
 export function ParameterRenderComponent({
@@ -248,6 +250,16 @@ export function ParameterRenderComponent({
             template={nodeClass?.template}
           />
         );
+      case "playbook":
+        return (
+          <PlaybookAreaComponent
+            {...baseInputProps}
+            id={`playbookarea_${id}`}
+            nodeClass={nodeClass}
+            name={name}
+            placeholder={placeholder}
+          />
+        );
       case "slider":
         return (
           <SliderComponent
@@ -353,6 +365,15 @@ export function ParameterRenderComponent({
             {...baseInputProps}
             id={`suna-open-profile-btn-${id}`}
             toolkitSlug={baseInputProps.value || ""}
+          />
+        );
+      case "variable_pills":
+        return (
+          <VariablePillsComponent
+            {...baseInputProps}
+            variables={templateData?.variables as any[]}
+            targetField={templateData?.target_field as string}
+            id={`variable-pills-${id}`}
           />
         );
       default:

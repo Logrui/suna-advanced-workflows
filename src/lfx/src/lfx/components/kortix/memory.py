@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from lfx.custom.custom_component.component import Component
-from lfx.inputs.inputs import IntInput, MessageTextInput, MultilineInput, SecretStrInput
+from lfx.inputs.inputs import IntInput, MessageTextInput, MultilineInput
 from lfx.io import Output
 from lfx.schema.data import Data
 
@@ -23,19 +23,8 @@ class SunaMemoryComponent(Component):
     
 
     inputs = [
-        SecretStrInput(
-            name="api_key",
-            display_name="Suna API Key",
-            info="Your Suna Kortix API key. Can also be set via SUNA_API_KEY environment variable.",
-            advanced=True,
-        ),
-        MessageTextInput(
-            name="api_base_url",
-            display_name="API Base URL",
-            info="Base URL for the Suna API (e.g., http://localhost:8000 or https://api.kortix.ai)",
-            value="http://localhost:8000",
-            advanced=True,
-        ),
+        # NOTE: API Key and Base URL now use environment variables
+        # KORTIX_BACKEND_URL and KORTIX_INTERNAL_SECRET
         MessageTextInput(
             name="operation",
             display_name="Operation",
@@ -71,6 +60,21 @@ class SunaMemoryComponent(Component):
         Output(name="result", display_name="Result", method="execute_memory_op"),
     ]
 
+    def _get_headers(self) -> dict:
+        """Get headers for internal API requests."""
+        import os
+        headers = {"Content-Type": "application/json"}
+        internal_secret = os.getenv("KORTIX_INTERNAL_SECRET")
+        if internal_secret:
+            headers["X-Internal-Secret"] = internal_secret
+            headers["X-Source"] = "advanced-workflows"
+        return headers
+
+    def _get_base_url(self) -> str:
+        """Get the Kortix API base URL from environment."""
+        import os
+        return (os.getenv("KORTIX_BACKEND_URL") or "http://docker.host.internal:8000").rstrip("/")
+
     async def execute_memory_op(self) -> Data:
         """Execute the memory operation."""
         import httpx
@@ -79,14 +83,9 @@ class SunaMemoryComponent(Component):
         agent_id = self.agent_id
         content = self.content
         limit = self.limit or 10
-        api_base_url = (self.api_base_url or "http://localhost:8000").rstrip("/")
+        api_base_url = self._get_base_url()
 
-        headers = {
-            "Content-Type": "application/json",
-        }
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-            headers["X-API-Key"] = self.api_key
+        headers = self._get_headers()
         
         payload = {
             "agent_id": agent_id,

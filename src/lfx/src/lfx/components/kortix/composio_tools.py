@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from lfx.custom.custom_component.component import Component
-from lfx.inputs.inputs import DropdownInput, MessageTextInput, SecretStrInput
+from lfx.inputs.inputs import DropdownInput, MessageTextInput
 from lfx.io import Output
 from lfx.schema.data import Data
 
@@ -22,19 +22,8 @@ class ComposioToolsComponent(Component):
     name = "ComposioTools"
 
     inputs = [
-        SecretStrInput(
-            name="api_key",
-            display_name="Kortix API Key",
-            info="Your Kortix API key in format pk_xxx:sk_xxx.",
-            real_time_refresh=True,
-        ),
-        MessageTextInput(
-            name="api_base_url",
-            display_name="API Base URL",
-            info="Base URL for the Kortix API (e.g., http://localhost:8000)",
-            value="http://localhost:8000",
-            real_time_refresh=True,
-        ),
+        # NOTE: API Key and Base URL now use environment variables
+        # KORTIX_BACKEND_URL and KORTIX_INTERNAL_SECRET
         DropdownInput(
             name="category",
             display_name="Category",
@@ -80,23 +69,27 @@ class ComposioToolsComponent(Component):
     ]
 
     def _get_headers(self) -> dict:
-        """Get headers for API requests."""
+        """Get headers for internal API requests."""
+        import os
         headers = {"Content-Type": "application/json"}
-        api_key = getattr(self, "api_key", None)
-        if api_key:
-            headers["X-API-Key"] = api_key
+        internal_secret = os.getenv("KORTIX_INTERNAL_SECRET")
+        if internal_secret:
+            headers["X-Internal-Secret"] = internal_secret
+            headers["X-Source"] = "advanced-workflows"
         return headers
 
     def _get_base_url(self) -> str:
-        """Get the API base URL."""
-        return (getattr(self, "api_base_url", None) or "http://localhost:8000").rstrip("/")
+        """Get the Kortix API base URL from environment."""
+        import os
+        return (os.getenv("KORTIX_BACKEND_URL") or "http://docker.host.internal:8000").rstrip("/")
 
     def _fetch_categories(self) -> list[str]:
         """Fetch available Composio categories from the API."""
+        import os
         import httpx
 
-        api_key = getattr(self, "api_key", None)
-        if not api_key:
+        internal_secret = os.getenv("KORTIX_INTERNAL_SECRET")
+        if not internal_secret:
             return []
 
         try:
@@ -124,10 +117,11 @@ class ComposioToolsComponent(Component):
 
     def _fetch_toolkits(self, category: str | None = None) -> list[dict]:
         """Fetch available toolkits, optionally filtered by category."""
+        import os
         import httpx
 
-        api_key = getattr(self, "api_key", None)
-        if not api_key:
+        internal_secret = os.getenv("KORTIX_INTERNAL_SECRET")
+        if not internal_secret:
             return []
 
         try:
@@ -156,10 +150,11 @@ class ComposioToolsComponent(Component):
 
     def _fetch_tools(self, toolkit_slug: str) -> list[dict]:
         """Fetch tools for a specific toolkit."""
+        import os
         import httpx
 
-        api_key = getattr(self, "api_key", None)
-        if not api_key or not toolkit_slug or toolkit_slug.startswith("--"):
+        internal_secret = os.getenv("KORTIX_INTERNAL_SECRET")
+        if not internal_secret or not toolkit_slug or toolkit_slug.startswith("--"):
             return []
 
         try:
@@ -201,8 +196,8 @@ class ComposioToolsComponent(Component):
     def update_build_config(self, build_config: dict, field_value: str, field_name: str | None = None) -> dict:
         """Dynamically update dropdowns based on selections."""
         
-        # Update categories when API key or base URL changes
-        if field_name in {"api_key", "api_base_url", "category"}:
+        # Update categories
+        if field_name in {"category"}:
             try:
                 categories = self._fetch_categories()
                 if categories:
@@ -216,7 +211,7 @@ class ComposioToolsComponent(Component):
                 print(f"[ComposioTool] Error updating categories: {e}")
 
         # Update toolkits when category changes
-        if field_name in {"category", "toolkit", "api_key", "api_base_url"}:
+        if field_name in {"category", "toolkit"}:
             try:
                 category = build_config.get("category", {}).get("value")
                 toolkits = self._fetch_toolkits(category)

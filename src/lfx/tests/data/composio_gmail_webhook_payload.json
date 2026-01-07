@@ -1,0 +1,72 @@
+{
+    "trigger_id": "test-trigger-001",
+    "agent_id": "test-agent-001",
+    "trigger_type": "webhook",
+    "timestamp": "2026-01-06T18:30:05.123Z",
+    "event_data": {
+        "id": "trig_inst_test123",
+        "eventId": "evt_test_001",
+        "triggerSlug": "GMAIL_NEW_GMAIL_MESSAGE",
+        "type": "GMAIL_NEW_GMAIL_MESSAGE",
+        "data": {
+            "trigger_nano_id": "trig_inst_test123"
+        },
+        "metadata": {
+            "connectedAccount": {
+                "id": "ca_gmail_testuser"
+            }
+        },
+        "payload": {
+            "messageId": "msg_test_18d4f2a3b1c2e5f6",
+            "threadId": "thread_test_18d4f2a3b1c2e5f6",
+            "from": "john.doe@example.com",
+            "to": [
+                "support@mycompany.com",
+                "team@mycompany.com"
+            ],
+            "cc": [
+                "manager@mycompany.com"
+            ],
+            "bcc": [],
+            "subject": "Urgent: Project Alpha Status Update Required",
+            "body": "Hi Team, Please provide the latest status update for Project Alpha by EOD today. Key items to include: 1. Current progress percentage 2. Any blockers or risks 3. Next steps for the week. Best regards, John Doe, Senior Project Manager",
+            "snippet": "Hi Team, Please provide the latest status update for Project Alpha by EOD...",
+            "date": "2026-01-06T18:30:00.000Z",
+            "labelIds": [
+                "INBOX",
+                "IMPORTANT",
+                "CATEGORY_PERSONAL"
+            ],
+            "attachments": [
+                {
+                    "filename": "project_alpha_timeline.pdf",
+                    "mimeType": "application/pdf",
+                    "size": 245678
+                },
+                {
+                    "filename": "budget_q1_2026.xlsx",
+                    "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "size": 89012
+                }
+            ]
+        }
+    },
+    "context": {
+        "payload": {
+            "messageId": "msg_test_18d4f2a3b1c2e5f6",
+            "from": "john.doe@example.com",
+            "subject": "Urgent: Project Alpha Status Update Required"
+        },
+        "trigger_slug": "GMAIL_NEW_GMAIL_MESSAGE",
+        "webhook_id": "whk_test_12345"
+    },
+    "execution_variables": {
+        "provider": "composio",
+        "trigger_slug": "GMAIL_NEW_GMAIL_MESSAGE",
+        "composio_trigger_id": "trig_inst_test123",
+        "provider_event_id": "evt_test_001",
+        "connected_account_id": "ca_gmail_testuser",
+        "received_at": "2026-01-06T18:30:05.123Z"
+    },
+    "agent_prompt": "You have received a new email. Process it according to your instructions."
+}

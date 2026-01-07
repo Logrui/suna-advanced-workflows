@@ -1133,7 +1133,10 @@ async def create_or_update_starter_projects(all_types_dict: dict) -> None:
                         new_folder_id=new_folder.id,
                     )
                 except Exception:  # noqa: BLE001
+                    import traceback
                     await logger.aexception(f"Error while creating starter project {project_name}")
+                    print(f"Error while creating starter project {project_name}: {exc}")
+                    print(f"Traceback:\n{traceback.format_exc()}")
 
                 successfully_updated_projects += 1
             await logger.adebug(f"Successfully updated {successfully_updated_projects} starter projects")

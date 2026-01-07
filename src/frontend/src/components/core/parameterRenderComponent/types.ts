@@ -154,3 +154,10 @@ export type NodeInfoType = {
   isAuth: boolean;
   variableName: string;
 };
+
+export type VariablePillsComponentType = {
+  variables?: Array<{ name: string; type?: string; description?: string }>;
+  targetField?: string;
+  targetTextareaId?: string; // DOM ID of textarea for cursor-aware insertion
+};
+

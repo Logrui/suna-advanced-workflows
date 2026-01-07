@@ -38,7 +38,6 @@ class KortixTriggerComponent(Component):
     """
 
     display_name: str = "Kortix Trigger"
-    description: str = "Receive trigger context and variables from Kortix."
     documentation: str = "https://docs.kortix.ai/workflows/triggers"
     icon = "Zap"
     name = "KortixTrigger"
@@ -56,6 +55,7 @@ class KortixTriggerComponent(Component):
             placeholder="-- Select Linked Trigger --",
             refresh_button=True,
             real_time_refresh=True,
+            input_types=[],  # Disable connection dots
         ),
         # Provider display - starts as dropdown, converted to TabInput pill at runtime (Composio pattern)
         DropdownInput(
@@ -64,6 +64,7 @@ class KortixTriggerComponent(Component):
             options=["No Provider"],
             value="No Provider",
             show=True,  # Always visible
+            input_types=[],  # Disable connection dots
         ),
         # Trigger type display - starts as dropdown, converted to TabInput pill at runtime (Composio pattern)
         DropdownInput(
@@ -72,12 +73,14 @@ class KortixTriggerComponent(Component):
             options=["—"],  # Placeholder - will be converted to TabInput dynamically
             value="—",
             show=False,  # Hidden until trigger loaded
+            input_types=[],  # Disable connection dots
         ),
         PlaybookInput(
             name="playbook",
             display_name="Playbook",
             info="Instructions for the workflow. Supports {{variable_name}} to reference trigger data.",
             value="",
+            input_types=[],  # Disable connection dots
         ),
         VariablePillsInput(
             name="available_variables",
@@ -87,12 +90,14 @@ class KortixTriggerComponent(Component):
             target_field="playbook",
             target_textarea_id="textarea_playbook",
             advanced=False,
+            input_types=[],  # Disable connection dots
         ),
         MultilineInput(
             name="data",
             display_name="Trigger Payload",
             info="Raw payload received from the trigger (populated at runtime).",
             advanced=True,
+            input_types=[],  # Disable connection dots
         ),
     ]
 
@@ -147,6 +152,7 @@ class KortixTriggerComponent(Component):
             display_name="Provider",
             options=[provider_label],
             value=provider_label,
+            input_types=[],  # Disable connection dots
         ).to_dict()
         provider_pill["show"] = True
         build_config["provider_display"] = provider_pill
@@ -167,6 +173,7 @@ class KortixTriggerComponent(Component):
                 display_name="Trigger Type",
                 options=[trigger_type_label],
                 value=trigger_type_label,
+                input_types=[],  # Disable connection dots
             ).to_dict()
             trigger_pill["show"] = True
             build_config["trigger_type"] = trigger_pill
@@ -349,6 +356,7 @@ class KortixTriggerComponent(Component):
                             display_name="Provider",
                             options=["No Provider"],
                             value="No Provider",
+                            input_types=[],  # Disable connection dots
                         ).to_dict()
                         provider_pill["show"] = True
                         build_config["provider_display"] = provider_pill
@@ -382,37 +390,212 @@ class KortixTriggerComponent(Component):
         return build_config
 
     def _parse_payload(self) -> dict:
-        """Parse the trigger payload from data field."""
+        """Parse and flatten the trigger payload for template substitution.
+        
+        The payload from Suna/Kortix has this nested structure:
+        {
+            "trigger_id": "...",
+            "agent_id": "...",
+            "trigger_type": "webhook",
+            "timestamp": "...",
+            "event_data": {                        # ← Composio event wrapper
+                "id": "...",
+                "triggerSlug": "GMAIL_NEW_GMAIL_MESSAGE",
+                "payload": {                       # ← Actual email/event data
+                    "from": "john@example.com",
+                    "subject": "...",
+                    "body": "...",
+                    ...
+                }
+            },
+            "context": {...},
+            "execution_variables": {...}
+        }
+        
+        We extract and flatten event_data.payload for easy {{variable}} access.
+        """
+        print(f"[KortixTrigger._parse_payload] Starting payload parsing")
+        print(f"[KortixTrigger._parse_payload] self.data type: {type(self.data)}")
+        print(f"[KortixTrigger._parse_payload] self.data value (first 500 chars): {str(self.data)[:500] if self.data else 'None'}")
+        
         if not self.data:
+            print("[KortixTrigger._parse_payload] No data received - returning empty dict")
             return {}
+        
         try:
+            # Step 1: Parse raw JSON string to dict
             if isinstance(self.data, str):
-                return json.loads(self.data)
-            return dict(self.data)
-        except (json.JSONDecodeError, TypeError):
-            return {"raw": self.data}
+                print(f"[KortixTrigger._parse_payload] Parsing JSON string (length: {len(self.data)})")
+                parsed = json.loads(self.data)
+            else:
+                print(f"[KortixTrigger._parse_payload] Data is already dict-like")
+                parsed = dict(self.data)
+            
+            print(f"[KortixTrigger._parse_payload] Parsed top-level keys: {list(parsed.keys()) if isinstance(parsed, dict) else 'not a dict'}")
+            
+            # Step 2: Extract event_data (the Composio event wrapper)
+            event_data = parsed.get("event_data", {})
+            print(f"[KortixTrigger._parse_payload] event_data keys: {list(event_data.keys()) if isinstance(event_data, dict) else 'not a dict'}")
+            
+            # Step 3: Extract the actual payload (email/event data)
+            composio_payload = event_data.get("payload", {})
+            print(f"[KortixTrigger._parse_payload] composio_payload keys: {list(composio_payload.keys()) if isinstance(composio_payload, dict) else 'not a dict'}")
+            
+            # Step 4: Build flattened dict for template substitution
+            flattened = {}
+            
+            if composio_payload and isinstance(composio_payload, dict):
+                # Gmail-specific field mapping
+                # Map Composio field names to user-friendly variable names
+                
+                # Sender (from field)
+                from_field = composio_payload.get("from", "")
+                flattened["sender"] = from_field
+                flattened["from"] = from_field  # Also support {{from}}
+                
+                # Recipients (to field - may be string or list)
+                to_field = composio_payload.get("to", [])
+                if isinstance(to_field, list):
+                    flattened["to"] = ", ".join(str(t) for t in to_field)
+                else:
+                    flattened["to"] = str(to_field) if to_field else ""
+                
+                # Message IDs
+                flattened["message_id"] = composio_payload.get("messageId", "") or composio_payload.get("message_id", "")
+                flattened["thread_id"] = composio_payload.get("threadId", "") or composio_payload.get("thread_id", "")
+                
+                # Subject
+                flattened["subject"] = composio_payload.get("subject", "")
+                
+                # Body/message text
+                flattened["message_text"] = composio_payload.get("body", "") or composio_payload.get("message", "") or composio_payload.get("text", "")
+                
+                # Timestamp
+                flattened["message_timestamp"] = composio_payload.get("date", "") or composio_payload.get("timestamp", "")
+                
+                # Attachments - format as readable list
+                attachments = composio_payload.get("attachments", [])
+                if attachments and isinstance(attachments, list):
+                    attachment_names = []
+                    for att in attachments:
+                        if isinstance(att, dict):
+                            attachment_names.append(att.get("filename", att.get("name", "unknown")))
+                        else:
+                            attachment_names.append(str(att))
+                    flattened["attachment_list"] = ", ".join(attachment_names) if attachment_names else "None"
+                else:
+                    flattened["attachment_list"] = "None"
+                
+                # Also include raw composio_payload fields for direct access
+                for key, value in composio_payload.items():
+                    if key not in flattened:
+                        # Don't overwrite our mapped fields
+                        flattened[key] = value
+                
+                print(f"[KortixTrigger._parse_payload] Flattened {len(flattened)} variables from composio_payload")
+            else:
+                print(f"[KortixTrigger._parse_payload] No composio_payload found, checking for direct payload structure")
+                # Fallback: Maybe the payload is directly in parsed (simple webhook case)
+                if "from" in parsed or "sender" in parsed or "subject" in parsed:
+                    flattened = parsed.copy()
+                    print(f"[KortixTrigger._parse_payload] Using parsed directly as flattened payload")
+            
+            # Step 5: Add metadata for advanced use cases
+            flattened["_trigger_slug"] = event_data.get("triggerSlug", "") or event_data.get("type", "")
+            flattened["_trigger_id"] = parsed.get("trigger_id", "")
+            flattened["_timestamp"] = parsed.get("timestamp", "")
+            flattened["_agent_id"] = parsed.get("agent_id", "")
+            
+            # Include full payload as JSON string for {{payload}} variable
+            if composio_payload:
+                flattened["payload"] = json.dumps(composio_payload, indent=2, ensure_ascii=False)
+            else:
+                flattened["payload"] = json.dumps(parsed, indent=2, ensure_ascii=False)
+            
+            print(f"[KortixTrigger._parse_payload] Final flattened dict has {len(flattened)} keys: {list(flattened.keys())}")
+            
+            # Debug: Log key values (truncated for readability)
+            for key in ["sender", "subject", "message_id", "_trigger_slug"]:
+                if key in flattened:
+                    value_preview = str(flattened[key])[:100]
+                    print(f"[KortixTrigger._parse_payload]   {key}: {value_preview}")
+            
+            return flattened
+            
+        except json.JSONDecodeError as e:
+            print(f"[KortixTrigger._parse_payload] JSON decode error: {e}")
+            print(f"[KortixTrigger._parse_payload] Raw data that failed: {str(self.data)[:200]}")
+            return {"raw": str(self.data), "_error": f"JSON decode error: {e}"}
+        except TypeError as e:
+            print(f"[KortixTrigger._parse_payload] Type error: {e}")
+            return {"raw": str(self.data), "_error": f"Type error: {e}"}
+        except Exception as e:
+            print(f"[KortixTrigger._parse_payload] Unexpected error: {e}")
+            import traceback
+            print(f"[KortixTrigger._parse_payload] Traceback: {traceback.format_exc()}")
+            return {"raw": str(self.data), "_error": f"Unexpected error: {e}"}
 
     def _render_playbook(self, payload: dict) -> str:
-        """Replace {{variable}} placeholders in playbook with actual values."""
+        """Replace {{variable}} placeholders in playbook with actual values.
+        
+        Supports:
+        - Simple variables: {{sender}}, {{subject}}
+        - Nested variables: {{payload.attachments}}
+        - Missing variable fallback: {{MISSING:varname}}
+        """
         import re
         
         playbook = getattr(self, "playbook", "") or ""
         
+        print(f"[KortixTrigger._render_playbook] Rendering playbook ({len(playbook)} chars)")
+        print(f"[KortixTrigger._render_playbook] Available payload keys: {list(payload.keys())}")
+        
+        replacements_made = 0
+        missing_vars = []
+        
         def replace_var(match):
+            nonlocal replacements_made, missing_vars
             var_name = match.group(1)
+            
             # Support nested variables with dot notation
             value = payload
             for key in var_name.split("."):
                 if isinstance(value, dict):
-                    value = value.get(key, f"{{{{MISSING:{var_name}}}}}")
+                    value = value.get(key)
+                    if value is None:
+                        missing_vars.append(var_name)
+                        print(f"[KortixTrigger._render_playbook] Variable not found: {{{{{var_name}}}}}")
+                        return f"{{{{MISSING:{var_name}}}}}"
                 else:
+                    missing_vars.append(var_name)
+                    print(f"[KortixTrigger._render_playbook] Cannot traverse non-dict for: {{{{{var_name}}}}}")
                     return f"{{{{MISSING:{var_name}}}}}"
-            return str(value) if value is not None else ""
+            
+            # Format the value appropriately
+            if isinstance(value, (dict, list)):
+                result = json.dumps(value, ensure_ascii=False)
+            elif value is None:
+                result = ""
+            else:
+                result = str(value)
+            
+            replacements_made += 1
+            print(f"[KortixTrigger._render_playbook] Replaced {{{{{var_name}}}}} -> {result[:50]}{'...' if len(result) > 50 else ''}")
+            return result
         
-        return re.sub(r"\{\{(\w+(?:\.\w+)*)\}\}", replace_var, playbook)
+        rendered = re.sub(r"\{\{(\w+(?:\.\w+)*)\}\}", replace_var, playbook)
+        
+        print(f"[KortixTrigger._render_playbook] Completed: {replacements_made} replacements, {len(missing_vars)} missing")
+        if missing_vars:
+            print(f"[KortixTrigger._render_playbook] Missing variables: {missing_vars}")
+        
+        return rendered
 
     async def build_trigger_context(self) -> Data:
         """Build the trigger context output."""
+        print(f"[KortixTrigger.build_trigger_context] Building trigger context output")
+        print(f"[KortixTrigger.build_trigger_context] self.data populated: {bool(self.data)}")
+        
         payload = self._parse_payload()
         
         context = {
@@ -422,13 +605,25 @@ class KortixTriggerComponent(Component):
             "playbook": getattr(self, "playbook", ""),
         }
         
+        print(f"[KortixTrigger.build_trigger_context] Context built with {len(payload)} payload fields")
+        print(f"[KortixTrigger.build_trigger_context] trigger_type: {context['trigger_type']}")
+        print(f"[KortixTrigger.build_trigger_context] linked_trigger: {context['linked_trigger']}")
+        
         self.status = f"Trigger context loaded with {len(payload)} fields"
         return Data(data=context)
 
     async def build_rendered_playbook(self) -> Message:
         """Build the rendered playbook with variables replaced."""
+        print(f"[KortixTrigger.build_rendered_playbook] Building rendered playbook output")
+        print(f"[KortixTrigger.build_rendered_playbook] self.data populated: {bool(self.data)}")
+        print(f"[KortixTrigger.build_rendered_playbook] self.playbook length: {len(getattr(self, 'playbook', '') or '')}")
+        
         payload = self._parse_payload()
         rendered = self._render_playbook(payload)
         
+        print(f"[KortixTrigger.build_rendered_playbook] Rendered playbook length: {len(rendered)}")
+        print(f"[KortixTrigger.build_rendered_playbook] Rendered playbook preview (first 200 chars): {rendered[:200]}")
+        
         self.status = f"Playbook rendered ({len(rendered)} chars)"
         return Message(text=rendered)
+

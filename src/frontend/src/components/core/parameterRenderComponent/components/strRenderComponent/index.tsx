@@ -2,6 +2,7 @@ import type { InputProps, StrRenderComponentType } from "../../types";
 import CopyFieldAreaComponent from "../copyFieldAreaComponent";
 import DropdownComponent from "../dropdownComponent";
 import InputGlobalComponent from "../inputGlobalComponent";
+import PlaybookAreaComponent from "../playbookComponent";
 import TextAreaComponent from "../textAreaComponent";
 import WebhookFieldComponent from "../webhookFieldComponent";
 
@@ -32,6 +33,17 @@ export function StrRenderComponent({
 
       if (copyField) {
         return <CopyFieldAreaComponent {...baseInputProps} />;
+      }
+
+      if (name === "playbook") {
+        return (
+          <PlaybookAreaComponent
+            {...baseInputProps}
+            id={`textarea_${id}`}
+            nodeClass={nodeClass}
+            placeholder={placeholder}
+          />
+        );
       }
 
       return (

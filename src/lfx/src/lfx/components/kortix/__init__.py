@@ -6,31 +6,29 @@ from lfx.components._importing import import_mod
 
 if TYPE_CHECKING:
     from lfx.components.kortix.composio_tools import ComposioToolsComponent
-    from lfx.components.kortix.composio_trigger import ComposioTriggerComponent
     from lfx.components.kortix.custom_tool import CustomToolComponent
+    from lfx.components.kortix.kortix_trigger import KortixTriggerComponent
     from lfx.components.kortix.memory import SunaMemoryComponent
     from lfx.components.kortix.native_tools import NativeToolsComponent
     from lfx.components.kortix.project import ProjectComponent
     from lfx.components.kortix.prompts import PlaybookRunnerComponent
     from lfx.components.kortix.sandbox import SandboxFileComponent
     from lfx.components.kortix.thread import ThreadManagerComponent
-    from lfx.components.kortix.trigger import TriggerComponent
     from lfx.components.kortix.worker import KortixAgentComponent
     from lfx.components.kortix.workflow import WorkflowRunnerComponent
 
 _dynamic_imports = {
     # Composio integrations
     "ComposioToolsComponent": "composio_tools",
-    "ComposioTriggerComponent": "composio_trigger",
     # Core components
     "CustomToolComponent": "custom_tool",
     "KortixAgentComponent": "worker",
+    "KortixTriggerComponent": "kortix_trigger",
     "NativeToolsComponent": "native_tools",
     "ProjectComponent": "project",
     "SandboxFileComponent": "sandbox",
     "SunaMemoryComponent": "memory",
     "ThreadManagerComponent": "thread",
-    "TriggerComponent": "trigger",
     "WorkflowRunnerComponent": "workflow",
     # Prompts
     "PlaybookRunnerComponent": "prompts",
@@ -39,16 +37,15 @@ _dynamic_imports = {
 __all__ = [
     # Composio integrations
     "ComposioToolsComponent",
-    "ComposioTriggerComponent",
     # Core components
     "CustomToolComponent",
     "KortixAgentComponent",
+    "KortixTriggerComponent",
     "NativeToolsComponent",
     "ProjectComponent",
     "SandboxFileComponent",
     "SunaMemoryComponent",
     "ThreadManagerComponent",
-    "TriggerComponent",
     "WorkflowRunnerComponent",
     # Prompts
     "PlaybookRunnerComponent",

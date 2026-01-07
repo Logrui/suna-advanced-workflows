@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from lfx.custom.custom_component.component import Component
-from lfx.inputs.inputs import DropdownInput, MessageTextInput, MultiselectInput, SecretStrInput
+from lfx.inputs.inputs import DropdownInput, MultiselectInput
 from lfx.io import Output
 from lfx.schema.data import Data
 
@@ -22,19 +22,8 @@ class NativeToolsComponent(Component):
     name = "NativeTools"
 
     inputs = [
-        SecretStrInput(
-            name="api_key",
-            display_name="Kortix API Key",
-            info="Your Kortix API key in format pk_xxx:sk_xxx.",
-            real_time_refresh=True,
-        ),
-        MessageTextInput(
-            name="api_base_url",
-            display_name="API Base URL",
-            info="Base URL for the Kortix API (e.g., http://localhost:8000)",
-            value="http://localhost:8000",
-            real_time_refresh=True,
-        ),
+        # NOTE: API Key and Base URL now use environment variables
+        # KORTIX_BACKEND_URL and KORTIX_INTERNAL_SECRET
         DropdownInput(
             name="category",
             display_name="Tool Category",
@@ -60,24 +49,28 @@ class NativeToolsComponent(Component):
     ]
 
     def _get_headers(self) -> dict:
-        """Get headers for API requests."""
+        """Get headers for internal API requests."""
+        import os
         headers = {"Content-Type": "application/json"}
-        api_key = getattr(self, "api_key", None)
-        if api_key:
-            headers["X-API-Key"] = api_key
+        internal_secret = os.getenv("KORTIX_INTERNAL_SECRET")
+        if internal_secret:
+            headers["X-Internal-Secret"] = internal_secret
+            headers["X-Source"] = "advanced-workflows"
         return headers
 
     def _get_base_url(self) -> str:
-        """Get the API base URL."""
-        return (getattr(self, "api_base_url", None) or "http://localhost:8000").rstrip("/")
+        """Get the Kortix API base URL from environment."""
+        import os
+        return (os.getenv("KORTIX_BACKEND_URL") or "http://docker.host.internal:8000").rstrip("/")
 
     def _fetch_native_tools(self, category: str | None = None) -> list[dict]:
         """Fetch available native tools from the API."""
+        import os
         import httpx
 
-        api_key = getattr(self, "api_key", None)
-        if not api_key:
-            # Return default tools if no API key
+        internal_secret = os.getenv("KORTIX_INTERNAL_SECRET")
+        if not internal_secret:
+            # Return default tools if no internal secret
             return self._get_default_tools()
 
         try:
@@ -116,7 +109,7 @@ class NativeToolsComponent(Component):
 
     def update_build_config(self, build_config: dict, field_value: str, field_name: str | None = None) -> dict:
         """Dynamically update tool options based on category selection."""
-        if field_name in {"api_key", "api_base_url", "category", "selected_tools"}:
+        if field_name in {"category", "selected_tools"}:
             try:
                 category = build_config.get("category", {}).get("value", "All")
                 tools = self._fetch_native_tools(category if category != "All" else None)

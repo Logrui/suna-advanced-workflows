@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from lfx.custom.custom_component.component import Component
-from lfx.inputs.inputs import DropdownInput, MessageTextInput, MultilineInput, SecretStrInput
+from lfx.inputs.inputs import DropdownInput, MessageTextInput, MultilineInput
 from lfx.io import Output
 from lfx.schema.message import Message
 
@@ -23,19 +23,8 @@ class KortixAgentComponent(Component):
     name = "KortixAgent"
 
     inputs = [
-        SecretStrInput(
-            name="api_key",
-            display_name="Kortix API Key",
-            info="Your Kortix API key in format pk_xxx:sk_xxx. Can also be set via KORTIX_API_KEY environment variable.",
-            real_time_refresh=True,
-        ),
-        MessageTextInput(
-            name="api_base_url",
-            display_name="API Base URL",
-            info="Base URL for the Kortix API (e.g., http://localhost:8000 or https://api.kortix.ai)",
-            value="http://localhost:8000",
-            real_time_refresh=True,
-        ),
+        # NOTE: API Key and Base URL now use environment variables
+        # KORTIX_BACKEND_URL and KORTIX_INTERNAL_SECRET
         DropdownInput(
             name="agent_id",
             display_name="Agent",
@@ -60,24 +49,35 @@ class KortixAgentComponent(Component):
         Output(name="response", display_name="Response", method="execute_agent"),
     ]
 
+    def _get_headers(self) -> dict:
+        """Get headers for internal API requests."""
+        import os
+        headers = {"Content-Type": "application/json"}
+        internal_secret = os.getenv("KORTIX_INTERNAL_SECRET")
+        if internal_secret:
+            headers["X-Internal-Secret"] = internal_secret
+            headers["X-Source"] = "advanced-workflows"
+        return headers
+
+    def _get_base_url(self) -> str:
+        """Get the Kortix API base URL from environment."""
+        import os
+        return (os.getenv("KORTIX_BACKEND_URL") or "http://docker.host.internal:8000").rstrip("/")
+
     def _fetch_agents(self) -> list[dict]:
         """Fetch available agents from the Kortix API."""
+        import os
         import httpx
 
-        api_base_url = (getattr(self, "api_base_url", None) or "http://localhost:8000").rstrip("/")
-        api_key = getattr(self, "api_key", None)
-
-        if not api_key:
+        internal_secret = os.getenv("KORTIX_INTERNAL_SECRET")
+        if not internal_secret:
             return []
 
-        headers = {
-            "Content-Type": "application/json",
-            "X-API-Key": api_key,
-        }
+        headers = self._get_headers()
 
         try:
             with httpx.Client(timeout=10.0) as client:
-                response = client.get(f"{api_base_url}/v1/agents", headers=headers)
+                response = client.get(f"{self._get_base_url()}/v1/agents", headers=headers)
                 response.raise_for_status()
                 data = response.json()
 
@@ -95,8 +95,8 @@ class KortixAgentComponent(Component):
 
     def update_build_config(self, build_config: dict, field_value: str, field_name: str | None = None) -> dict:
         """Dynamically update the agent dropdown with available agents."""
-        # Trigger refresh when api_key, api_base_url, or agent_id field changes
-        if field_name in {"api_key", "api_base_url", "agent_id"}:
+        # Trigger refresh when agent_id field changes
+        if field_name in {"agent_id"}:
             try:
                 agents = self._fetch_agents()
 
@@ -169,13 +169,9 @@ class KortixAgentComponent(Component):
         if not agent_id:
             return Message(text="Error: Please select an agent from the dropdown.")
         
-        api_base_url = (self.api_base_url or "http://localhost:8000").rstrip("/")
+        api_base_url = self._get_base_url()
 
-        headers = {
-            "Content-Type": "application/json",
-        }
-        if self.api_key:
-            headers["X-API-Key"] = self.api_key
+        headers = self._get_headers()
 
         payload = {
             "input": task,

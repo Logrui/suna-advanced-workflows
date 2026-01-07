@@ -13,10 +13,37 @@ def get_webhook_component_in_flow(flow_data: dict):
 
 
 def get_all_webhook_components_in_flow(flow_data: dict | None):
-    """Get all webhook components in flow data."""
+    """Get all webhook-capable components in flow data.
+    
+    This function identifies components that can receive webhook payloads.
+    The payload is injected into these components via the tweaks mechanism.
+    
+    Supported component patterns:
+    - Webhook: Standard Langflow webhook input
+    - KortixTrigger: Custom Kortix trigger component for Composio events
+    """
     if not flow_data:
         return []
-    return [node for node in flow_data.get("nodes", []) if "Webhook" in node.get("id")]
+    
+    # Extensible list of component types that can receive webhook payloads
+    WEBHOOK_PATTERNS = ["Webhook", "KortixTrigger"]
+    
+    nodes = flow_data.get("nodes", [])
+    matched_components = []
+    
+    for node in nodes:
+        node_id = node.get("id", "")
+        for pattern in WEBHOOK_PATTERNS:
+            if pattern in node_id:
+                matched_components.append(node)
+                # Debug: Log matched webhook components
+                print(f"[WEBHOOK_DETECTION] Matched component: id={node_id}, pattern={pattern}")
+                break
+    
+    # Debug: Summary of webhook detection
+    print(f"[WEBHOOK_DETECTION] Found {len(matched_components)} webhook-capable components in flow (total nodes: {len(nodes)})")
+    
+    return matched_components
 
 
 def get_components_versions(flow: Flow):

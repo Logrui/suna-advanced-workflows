@@ -1509,6 +1509,9 @@ class ComposioBaseComponent(Component):
 
     def _render_auth_mode_dropdown(self, build_config: dict, modes: list[str]) -> None:
         """Populate and show the auth_mode control; if only one mode, show as selected chip-style list."""
+        # Skip in EXTERNAL_PROFILES mode - auth is handled by Kortix
+        if IS_EXTERNAL_PROFILES_MODE:
+            return
         try:
             build_config.setdefault("auth_mode", {})
             auth_mode_cfg = build_config["auth_mode"]
@@ -1874,33 +1877,35 @@ class ComposioBaseComponent(Component):
             else:
                 logger.info("DEBUG: EARLY No stored connection_id to clear on API key change")
             # Also clear any stored scheme and reset auth mode UI when API key changes
-            build_config.setdefault("auth_link", {})
-            build_config["auth_link"].pop("auth_scheme", None)
-            build_config.setdefault("auth_mode", {})
-            build_config["auth_mode"].pop("value", None)
-            build_config["auth_mode"]["show"] = True
-            # If auth_mode is currently a TabInput pill, convert it back to dropdown
-            if isinstance(build_config.get("auth_mode"), dict) and build_config["auth_mode"].get("type") == "tab":
-                build_config["auth_mode"].pop("type", None)
-            # Re-render dropdown options for the new API key context
-            try:
-                schema = self._get_toolkit_schema()
-                modes = self._extract_auth_modes_from_schema(schema)
-                # Rebuild as DropdownInput to ensure proper rendering
-                dd = DropdownInput(
-                    name="auth_mode",
-                    display_name="Auth Mode",
-                    options=modes,
-                    placeholder="Select auth mode",
-                    toggle=True,
-                    toggle_disable=True,
-                    show=True,
-                    real_time_refresh=True,
-                    helper_text="Choose how to authenticate with the toolkit.",
-                ).to_dict()
-                build_config["auth_mode"] = dd
-            except (TypeError, ValueError, AttributeError):
-                pass
+            # Skip auth_mode rendering in EXTERNAL_PROFILES mode
+            if not IS_EXTERNAL_PROFILES_MODE:
+                build_config.setdefault("auth_link", {})
+                build_config["auth_link"].pop("auth_scheme", None)
+                build_config.setdefault("auth_mode", {})
+                build_config["auth_mode"].pop("value", None)
+                build_config["auth_mode"]["show"] = True
+                # If auth_mode is currently a TabInput pill, convert it back to dropdown
+                if isinstance(build_config.get("auth_mode"), dict) and build_config["auth_mode"].get("type") == "tab":
+                    build_config["auth_mode"].pop("type", None)
+                # Re-render dropdown options for the new API key context
+                try:
+                    schema = self._get_toolkit_schema()
+                    modes = self._extract_auth_modes_from_schema(schema)
+                    # Rebuild as DropdownInput to ensure proper rendering
+                    dd = DropdownInput(
+                        name="auth_mode",
+                        display_name="Auth Mode",
+                        options=modes,
+                        placeholder="Select auth mode",
+                        toggle=True,
+                        toggle_disable=True,
+                        show=True,
+                        real_time_refresh=True,
+                        helper_text="Choose how to authenticate with the toolkit.",
+                    ).to_dict()
+                    build_config["auth_mode"] = dd
+                except (TypeError, ValueError, AttributeError):
+                    pass
             # NEW: Clear any selected action and hide generated fields when API key is re-entered
             try:
                 if "action_button" in build_config and isinstance(build_config["action_button"], dict):
@@ -2575,24 +2580,25 @@ class ComposioBaseComponent(Component):
             build_config.setdefault("auth_link", {})
             build_config["auth_link"].pop("connection_id", None)
             build_config["auth_link"].pop("auth_scheme", None)
-            # Restore auth_mode dropdown and hide pill
-            try:
-                dd = DropdownInput(
-                    name="auth_mode",
-                    display_name="Auth Mode",
-                    options=[],
-                    placeholder="Select auth mode",
-                    toggle=True,
-                    toggle_disable=True,
-                    show=True,
-                    real_time_refresh=True,
-                    helper_text="Choose how to authenticate with the toolkit.",
-                ).to_dict()
-                build_config["auth_mode"] = dd
-            except (TypeError, ValueError, AttributeError):
-                build_config.setdefault("auth_mode", {})
-                build_config["auth_mode"]["show"] = True
-                build_config["auth_mode"].pop("value", None)
+            # Restore auth_mode dropdown and hide pill - skip in EXTERNAL_PROFILES mode
+            if not IS_EXTERNAL_PROFILES_MODE:
+                try:
+                    dd = DropdownInput(
+                        name="auth_mode",
+                        display_name="Auth Mode",
+                        options=[],
+                        placeholder="Select auth mode",
+                        toggle=True,
+                        toggle_disable=True,
+                        show=True,
+                        real_time_refresh=True,
+                        helper_text="Choose how to authenticate with the toolkit.",
+                    ).to_dict()
+                    build_config["auth_mode"] = dd
+                except (TypeError, ValueError, AttributeError):
+                    build_config.setdefault("auth_mode", {})
+                    build_config["auth_mode"]["show"] = True
+                    build_config["auth_mode"].pop("value", None)
             # NEW: Clear any selected action and hide generated fields when API key is cleared
             try:
                 if "action_button" in build_config and isinstance(build_config["action_button"], dict):
