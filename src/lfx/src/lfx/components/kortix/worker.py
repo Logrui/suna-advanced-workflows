@@ -193,6 +193,45 @@ class KortixAgentComponent(Component):
             print(f"[KortixAgent._fetch_agents] Traceback: {traceback.format_exc()}")
             return []
 
+    def _fetch_workflow_info(self, workflow_id: str) -> dict | None:
+        """Fetch workflow info from Kortix backend to get the associated agent_id.
+        
+        Uses the GET /workflows/{workflow_id} endpoint which returns the workflow
+        with its agent_id field.
+        """
+        import os
+        import httpx
+        
+        print(f"[KortixAgent._fetch_workflow_info] Fetching workflow info for: {workflow_id}")
+        
+        internal_secret = os.getenv("KORTIX_INTERNAL_SECRET")
+        if not internal_secret:
+            print("[KortixAgent._fetch_workflow_info] ERROR: No KORTIX_INTERNAL_SECRET")
+            return None
+        
+        base_url = self._get_base_url()
+        url = f"{base_url}/workflows/{workflow_id}"
+        headers = self._get_headers()
+        
+        print(f"[KortixAgent._fetch_workflow_info] URL: {url}")
+        
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(url, headers=headers)
+                print(f"[KortixAgent._fetch_workflow_info] Response status: {response.status_code}")
+                
+                if response.status_code == 404:
+                    print(f"[KortixAgent._fetch_workflow_info] Workflow not found: {workflow_id}")
+                    return None
+                
+                response.raise_for_status()
+                data = response.json()
+                print(f"[KortixAgent._fetch_workflow_info] Workflow data: agent_id={data.get('agent_id')}, name={data.get('name')}")
+                return data
+        except Exception as e:
+            print(f"[KortixAgent._fetch_workflow_info] ERROR: {type(e).__name__}: {e}")
+            return None
+
     def update_build_config(self, build_config: dict, field_value: str, field_name: str | None = None) -> dict:
         """Dynamically update the agent dropdown with available agents."""
         import json
@@ -246,57 +285,47 @@ class KortixAgentComponent(Component):
                     build_config["agent_id"]["options"] = options
                     build_config["agent_id"]["options_metadata"] = options_metadata
                     
-                    # Try to auto-select agent based on current flow's folder_id (= Suna Agent ID)
+                    # Try to auto-select agent based on workflow's agent_id
                     current_value = build_config.get("agent_id", {}).get("value", "")
                     print(f"[KortixAgent.update_build_config] Current value: {current_value}")
                     
-                    # Get the folder_id and folder_name from build_config
-                    folder_id = build_config.get("_frontend_node_folder_id")
-                    # Also try to get flow_id to lookup folder info
-                    flow_id = build_config.get("_frontend_node_flow_id")
-                    print(f"[KortixAgent.update_build_config] folder_id: {folder_id}, flow_id: {flow_id}")
+                    # Get flow_id from build_config (same pattern as kortix_trigger.py)
+                    # flow_id in LFX maps to workflow_id in Suna
+                    flow_id_data = build_config.get("_frontend_node_flow_id")
                     
-                    # Get folder name (project name) which should match agent name
-                    folder_name = None
-                    if folder_id:
-                        try:
-                            from lfx.services.deps import session_scope
-                            from lfx.utils.async_helpers import run_until_complete
-                            from sqlmodel import select
-                            
-                            async def get_folder_name():
-                                async with session_scope() as session:
-                                    from langflow.services.database.models.folder.model import Folder
-                                    stmt = select(Folder.name).where(Folder.id == folder_id)
-                                    result = await session.exec(stmt)
-                                    return result.first()
-                            
-                            folder_name = run_until_complete(get_folder_name())
-                            print(f"[KortixAgent.update_build_config] folder_name from DB: {folder_name}")
-                        except Exception as e:
-                            print(f"[KortixAgent.update_build_config] Error getting folder_name: {e}")
+                    # Extract actual value - it may be a dict with 'value' key
+                    if isinstance(flow_id_data, dict):
+                        flow_id = flow_id_data.get('value')
+                    else:
+                        flow_id = flow_id_data
                     
-                    # Find and auto-select the agent matching folder_id OR folder_name
+                    # Fallback: try self.flow_id attribute
+                    if not flow_id and hasattr(self, 'flow_id'):
+                        flow_id = getattr(self, 'flow_id', None)
+                    
+                    print(f"[KortixAgent.update_build_config] flow_id (workflow_id): {flow_id}")
+                    
+                    # Fetch workflow info to get the associated agent_id
+                    target_agent_id = None
+                    if flow_id:
+                        workflow_info = self._fetch_workflow_info(str(flow_id))
+                        if workflow_info:
+                            target_agent_id = workflow_info.get("agent_id")
+                            print(f"[KortixAgent.update_build_config] Workflow's agent_id: {target_agent_id}")
+                    
+                    # Find and auto-select the agent matching the workflow's agent_id
                     auto_selected = False
-                    for idx, metadata in enumerate(options_metadata):
-                        agent_id = metadata.get("id")
-                        agent_name = metadata.get("name")
-                        
-                        # Match by ID
-                        if folder_id and (agent_id == folder_id or str(agent_id) == str(folder_id)):
-                            new_value = options[idx]
-                            print(f"[KortixAgent.update_build_config] AUTO-SELECT by ID: '{new_value}' matches folder_id {folder_id}")
-                            build_config["agent_id"]["value"] = new_value
-                            auto_selected = True
-                            break
-                        
-                        # Match by name (case-insensitive)
-                        if folder_name and agent_name and agent_name.lower() == folder_name.lower():
-                            new_value = options[idx]
-                            print(f"[KortixAgent.update_build_config] AUTO-SELECT by NAME: '{new_value}' matches folder_name {folder_name}")
-                            build_config["agent_id"]["value"] = new_value
-                            auto_selected = True
-                            break
+                    if target_agent_id:
+                        for idx, metadata in enumerate(options_metadata):
+                            agent_id = metadata.get("id")
+                            
+                            # Match by agent_id
+                            if agent_id == target_agent_id or str(agent_id) == str(target_agent_id):
+                                new_value = options[idx]
+                                print(f"[KortixAgent.update_build_config] AUTO-SELECT: '{new_value}' matches workflow agent_id {target_agent_id}")
+                                build_config["agent_id"]["value"] = new_value
+                                auto_selected = True
+                                break
                     
                     if not auto_selected:
                         if current_value not in options:
