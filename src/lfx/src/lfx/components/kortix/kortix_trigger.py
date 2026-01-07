@@ -107,7 +107,7 @@ class KortixTriggerComponent(Component):
         Output(name="playbook_rendered", display_name="Prompt", method="build_rendered_playbook"),
     ]
 
-    def _get_headers(self) -> dict:
+    def _get_headers(self, user_id: str | None = None) -> dict:
         """Get headers for internal API requests to Kortix backend."""
         import os
         headers = {"Content-Type": "application/json"}
@@ -117,9 +117,23 @@ class KortixTriggerComponent(Component):
         if internal_secret:
             headers["X-Internal-Secret"] = internal_secret
             headers["X-Source"] = "advanced-workflows"
-            # User ID will be added per-request when available
+            
+            # Use provided user_id or fall back to self.user_id
+            effective_user_id = user_id or self._get_user_id()
+            if effective_user_id:
+                headers["X-User-Id"] = effective_user_id
         
         return headers
+
+    def _get_user_id(self) -> str | None:
+        """Helper to safely get user_id from the component context."""
+        try:
+            # self.user_id is available in CustomComponent base class
+            if hasattr(self, "user_id") and self.user_id:
+                return str(self.user_id)
+        except Exception:
+            pass
+        return None
 
     def _get_base_url(self) -> str:
         """Get the Kortix API base URL from environment."""
@@ -204,9 +218,7 @@ class KortixTriggerComponent(Component):
             print("[KortixTrigger] ERROR: No workflow_id provided!")
             return []
         
-        headers = self._get_headers()
-        if user_id:
-            headers["X-User-Id"] = user_id
+        headers = self._get_headers(user_id)
 
         # Base URL already includes /v1 (e.g., https://api.suna.syhc.dev/v1)
         url = f"{base_url}/triggers/workflow/{workflow_id}/linked"
@@ -235,15 +247,13 @@ class KortixTriggerComponent(Component):
         if not internal_secret or not trigger_slug:
             return []
         
-        headers = self._get_headers()
-        if user_id:
-            headers["X-User-Id"] = user_id
+        headers = self._get_headers(user_id)
 
         try:
             with httpx.Client(timeout=10.0) as client:
                 response = client.get(
-                    f"{self._get_base_url()}/v1/composio/triggers/schema/{trigger_slug}",
-                    headers=self._get_headers()
+                    f"{self._get_base_url()}/composio/triggers/schema/{trigger_slug}",
+                    headers=headers
                 )
                 response.raise_for_status()
                 data = response.json()

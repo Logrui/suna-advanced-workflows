@@ -57,7 +57,21 @@ class ThreadManagerComponent(Component):
         if internal_secret:
             headers["X-Internal-Secret"] = internal_secret
             headers["X-Source"] = "advanced-workflows"
+            # Add user context if available
+            user_id = self._get_user_id()
+            if user_id:
+                headers["X-User-Id"] = user_id
         return headers
+
+    def _get_user_id(self) -> str | None:
+        """Helper to safely get user_id from the component context."""
+        try:
+            # self.user_id is available in CustomComponent base class
+            if hasattr(self, "user_id") and self.user_id:
+                return str(self.user_id)
+        except Exception:
+            pass
+        return None
 
     def _get_base_url(self) -> str:
         """Get the Kortix API base URL from environment."""
@@ -78,7 +92,7 @@ class ThreadManagerComponent(Component):
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 if operation == "create":
-                    url = f"{api_base_url}/v1/threads"
+                    url = f"{api_base_url}/threads"
                     # Pass any extra metadata if inputs allowed, for now empty payload or check logic
                     payload = {"project_id": project_id} if project_id else {}
                     response = await client.post(url, json=payload, headers=headers)
@@ -86,11 +100,11 @@ class ThreadManagerComponent(Component):
                 elif operation == "get":
                     if not thread_id:
                         raise ValueError("Thread ID is required for 'get' operation.")
-                    url = f"{api_base_url}/v1/threads/{thread_id}"
+                    url = f"{api_base_url}/threads/{thread_id}"
                     response = await client.get(url, headers=headers)
                     
                 elif operation == "list":
-                    url = f"{api_base_url}/v1/threads"
+                    url = f"{api_base_url}/threads"
                     params = {}
                     if project_id:
                         params["project_id"] = project_id
@@ -99,7 +113,7 @@ class ThreadManagerComponent(Component):
                 elif operation == "delete":
                     if not thread_id:
                         raise ValueError("Thread ID is required for 'delete' operation.")
-                    url = f"{api_base_url}/v1/threads/{thread_id}"
+                    url = f"{api_base_url}/threads/{thread_id}"
                     response = await client.delete(url, headers=headers)
                     
                 else:

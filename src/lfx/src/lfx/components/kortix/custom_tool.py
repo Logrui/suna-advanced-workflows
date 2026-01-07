@@ -70,7 +70,21 @@ class CustomToolComponent(Component):
         if internal_secret:
             headers["X-Internal-Secret"] = internal_secret
             headers["X-Source"] = "advanced-workflows"
+            # Add user context if available
+            user_id = self._get_user_id()
+            if user_id:
+                headers["X-User-Id"] = user_id
         return headers
+
+    def _get_user_id(self) -> str | None:
+        """Helper to safely get user_id from the component context."""
+        try:
+            # self.user_id is available in CustomComponent base class
+            if hasattr(self, "user_id") and self.user_id:
+                return str(self.user_id)
+        except Exception:
+            pass
+        return None
 
     def _get_base_url(self) -> str:
         """Get the Kortix API base URL from environment."""
@@ -108,7 +122,7 @@ class CustomToolComponent(Component):
             try:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
-                        f"{self._get_base_url()}/v1/tools/custom",
+                        f"{self._get_base_url()}/tools/custom",
                         headers=self._get_headers(),
                         json=tool_config
                     )

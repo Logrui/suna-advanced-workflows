@@ -65,7 +65,21 @@ class ProjectComponent(Component):
         if internal_secret:
             headers["X-Internal-Secret"] = internal_secret
             headers["X-Source"] = "advanced-workflows"
+            # Add user context if available
+            user_id = self._get_user_id()
+            if user_id:
+                headers["X-User-Id"] = user_id
         return headers
+
+    def _get_user_id(self) -> str | None:
+        """Helper to safely get user_id from the component context."""
+        try:
+            # self.user_id is available in CustomComponent base class
+            if hasattr(self, "user_id") and self.user_id:
+                return str(self.user_id)
+        except Exception:
+            pass
+        return None
 
     def _get_base_url(self) -> str:
         """Get the Kortix API base URL from environment."""
@@ -84,7 +98,7 @@ class ProjectComponent(Component):
         try:
             with httpx.Client(timeout=10.0) as client:
                 response = client.get(
-                    f"{self._get_base_url()}/v1/projects",
+                    f"{self._get_base_url()}/projects",
                     headers=self._get_headers()
                 )
                 response.raise_for_status()
@@ -165,7 +179,7 @@ class ProjectComponent(Component):
             async with httpx.AsyncClient(timeout=60.0) as client:
                 if operation == "list":
                     response = await client.get(
-                        f"{api_base_url}/v1/projects",
+                        f"{api_base_url}/projects",
                         headers=self._get_headers()
                     )
                     response.raise_for_status()
@@ -184,7 +198,7 @@ class ProjectComponent(Component):
                         return Data(data={"error": "Please select a project"})
 
                     response = await client.get(
-                        f"{api_base_url}/v1/projects/{project_id}",
+                        f"{api_base_url}/projects/{project_id}",
                         headers=self._get_headers()
                     )
                     response.raise_for_status()
@@ -202,7 +216,7 @@ class ProjectComponent(Component):
                         "description": self.project_description or "",
                     }
                     response = await client.post(
-                        f"{api_base_url}/v1/projects",
+                        f"{api_base_url}/projects",
                         headers=self._get_headers(),
                         json=payload
                     )
@@ -218,7 +232,7 @@ class ProjectComponent(Component):
                         return Data(data={"error": "Please select a project"})
 
                     response = await client.delete(
-                        f"{api_base_url}/v1/projects/{project_id}",
+                        f"{api_base_url}/projects/{project_id}",
                         headers=self._get_headers()
                     )
                     response.raise_for_status()

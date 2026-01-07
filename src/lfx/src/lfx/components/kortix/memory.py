@@ -68,7 +68,21 @@ class SunaMemoryComponent(Component):
         if internal_secret:
             headers["X-Internal-Secret"] = internal_secret
             headers["X-Source"] = "advanced-workflows"
+            # Add user context if available
+            user_id = self._get_user_id()
+            if user_id:
+                headers["X-User-Id"] = user_id
         return headers
+
+    def _get_user_id(self) -> str | None:
+        """Helper to safely get user_id from the component context."""
+        try:
+            # self.user_id is available in CustomComponent base class
+            if hasattr(self, "user_id") and self.user_id:
+                return str(self.user_id)
+        except Exception:
+            pass
+        return None
 
     def _get_base_url(self) -> str:
         """Get the Kortix API base URL from environment."""
@@ -95,7 +109,7 @@ class SunaMemoryComponent(Component):
         }
 
         try:
-            url = f"{api_base_url}/v1/memory/{operation}"
+            url = f"{api_base_url}/memory/{operation}"
             
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(url, json=payload, headers=headers)
