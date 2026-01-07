@@ -28,10 +28,12 @@ class KortixAgentComponent(Component):
         DropdownInput(
             name="agent_id",
             display_name="Agent",
-            info="Select a Kortix Agent to use. Click refresh to load available agents.",
-            options=["-- Select an Agent --"],
-            value="-- Select an Agent --",
+            info="Select a Kortix Agent to use. Agents are fetched automatically on load.",
+            options=[],  # Empty to trigger auto-fetch on mount
+            value="",
+            placeholder="-- Select an Agent --",
             refresh_button=True,
+            real_time_refresh=True,
         ),
         MessageTextInput(
             name="thread_id",
@@ -64,13 +66,60 @@ class KortixAgentComponent(Component):
         return headers
 
     def _get_user_id(self) -> str | None:
-        """Helper to safely get user_id from the component context."""
+        """Helper to safely get user_id from the component context.
+        
+        Resolves the real Suna Account ID from the username if it's an external user.
+        """
+        # Check cache first to avoid redundant DB hits
+        if hasattr(self, "_resolved_user_id") and self._resolved_user_id:
+            return self._resolved_user_id
+
         try:
-            # self.user_id is available in CustomComponent base class
             if hasattr(self, "user_id") and self.user_id:
+                # 1. Try to resolve the Suna Account ID from the username in DB
+                resolved = self._resolve_user_id_from_db()
+                if resolved:
+                    self._resolved_user_id = resolved
+                    return resolved
+                
+                # 2. Fallback to standard Langflow user_id
                 return str(self.user_id)
         except Exception:
             pass
+        return None
+
+    def _resolve_user_id_from_db(self) -> str | None:
+        """Fetch the username from the database and extract the Suna ID if prefixed."""
+        try:
+            from lfx.services.deps import session_scope
+            from langflow.services.database.models.user.crud import get_user_by_id
+            from lfx.utils.async_helpers import run_until_complete
+            import uuid
+
+            user_uuid = self.user_id
+            if isinstance(user_uuid, str):
+                user_uuid = uuid.UUID(user_uuid)
+            
+            print(f"[KortixAgent] Attempting Suna ID resolution for Langflow user_id: {user_uuid}")
+            
+            async def get_username():
+                async with session_scope() as session:
+                    user = await get_user_by_id(session, user_uuid)
+                    if not user:
+                        print(f"[KortixAgent] No user found in DB for ID: {user_uuid}")
+                        return None
+                    print(f"[KortixAgent] Found user in DB. Username: '{user.username}'")
+                    return user.username
+            
+            username = run_until_complete(get_username())
+            if username and username.startswith("suna_"):
+                resolved_id = username.replace("suna_", "")
+                print(f"[KortixAgent] SUCCESS: Resolved Suna Account ID from username: {resolved_id}")
+                return resolved_id
+            elif username:
+                print(f"[KortixAgent] SKIP: Username '{username}' does not have 'suna_' prefix.")
+        except Exception as e:
+            print(f"[KortixAgent] ERROR in ID resolution: {e!s}")
         return None
 
     def _get_base_url(self) -> str:
@@ -154,7 +203,7 @@ class KortixAgentComponent(Component):
         print(f"[KortixAgent.update_build_config] build_config keys: {list(build_config.keys())}")
         
         # Trigger refresh when agent_id field changes
-        if field_name in {"agent_id"}:
+        if field_name in {"agent_id"} or field_name is None:
             print(f"[KortixAgent.update_build_config] Field is agent_id - processing...")
             try:
                 print(f"[KortixAgent.update_build_config] Calling _fetch_agents()...")
@@ -197,18 +246,68 @@ class KortixAgentComponent(Component):
                     build_config["agent_id"]["options"] = options
                     build_config["agent_id"]["options_metadata"] = options_metadata
                     
-                    # Keep selected value if it's still valid
+                    # Try to auto-select agent based on current flow's folder_id (= Suna Agent ID)
                     current_value = build_config.get("agent_id", {}).get("value", "")
                     print(f"[KortixAgent.update_build_config] Current value: {current_value}")
                     
-                    if current_value not in options:
-                        new_value = options[0] if options else "-- No Agents Found --"
-                        print(f"[KortixAgent.update_build_config] Current value not in options - setting to: {new_value}")
-                        build_config["agent_id"]["value"] = new_value
-                    else:
-                        print(f"[KortixAgent.update_build_config] Current value is valid - keeping it")
+                    # Get the folder_id and folder_name from build_config
+                    folder_id = build_config.get("_frontend_node_folder_id")
+                    # Also try to get flow_id to lookup folder info
+                    flow_id = build_config.get("_frontend_node_flow_id")
+                    print(f"[KortixAgent.update_build_config] folder_id: {folder_id}, flow_id: {flow_id}")
+                    
+                    # Get folder name (project name) which should match agent name
+                    folder_name = None
+                    if folder_id:
+                        try:
+                            from lfx.services.deps import session_scope
+                            from lfx.utils.async_helpers import run_until_complete
+                            from sqlmodel import select
+                            
+                            async def get_folder_name():
+                                async with session_scope() as session:
+                                    from langflow.services.database.models.folder.model import Folder
+                                    stmt = select(Folder.name).where(Folder.id == folder_id)
+                                    result = await session.exec(stmt)
+                                    return result.first()
+                            
+                            folder_name = run_until_complete(get_folder_name())
+                            print(f"[KortixAgent.update_build_config] folder_name from DB: {folder_name}")
+                        except Exception as e:
+                            print(f"[KortixAgent.update_build_config] Error getting folder_name: {e}")
+                    
+                    # Find and auto-select the agent matching folder_id OR folder_name
+                    auto_selected = False
+                    for idx, metadata in enumerate(options_metadata):
+                        agent_id = metadata.get("id")
+                        agent_name = metadata.get("name")
+                        
+                        # Match by ID
+                        if folder_id and (agent_id == folder_id or str(agent_id) == str(folder_id)):
+                            new_value = options[idx]
+                            print(f"[KortixAgent.update_build_config] AUTO-SELECT by ID: '{new_value}' matches folder_id {folder_id}")
+                            build_config["agent_id"]["value"] = new_value
+                            auto_selected = True
+                            break
+                        
+                        # Match by name (case-insensitive)
+                        if folder_name and agent_name and agent_name.lower() == folder_name.lower():
+                            new_value = options[idx]
+                            print(f"[KortixAgent.update_build_config] AUTO-SELECT by NAME: '{new_value}' matches folder_name {folder_name}")
+                            build_config["agent_id"]["value"] = new_value
+                            auto_selected = True
+                            break
+                    
+                    if not auto_selected:
+                        if current_value not in options:
+                            new_value = options[0] if options else "-- No Agents Found --"
+                            print(f"[KortixAgent.update_build_config] Current value not in options - setting to: {new_value}")
+                            build_config["agent_id"]["value"] = new_value
+                        else:
+                            print(f"[KortixAgent.update_build_config] Current value is valid - keeping it")
                     
                     print(f"[KortixAgent.update_build_config] Final agent_id config: {json.dumps(build_config.get('agent_id', {}), indent=2)}")
+
                 else:
                     print(f"[KortixAgent.update_build_config] No agents returned - setting 'No Agents Found'")
                     build_config["agent_id"]["options"] = ["-- No Agents Found --"]

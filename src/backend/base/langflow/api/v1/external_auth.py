@@ -71,10 +71,34 @@ async def find_or_create_external_user(
 ) -> User:
     """Find existing user or create a new one for external auth."""
     # Generate a unique username based on external ID
-    lookup_username = username or f"{source}_{external_user_id[:8]}"
+    # Use full UUID for ID resolution parity in components
+    prefix = "suna" if source and source.startswith("suna") else source
+    lookup_username = username or f"{prefix}_{external_user_id}"
 
-    # Try to find existing user
+    # Try to find existing user (Primary: Full UUID naming)
+    logger.debug(f"[External Auth] Looking for user with primary username: {lookup_username}")
     user = await get_user_by_username(db, lookup_username)
+
+    if not user:
+        # Fallback: check for legacy truncated username pattern (suna_{8-chars}) to migrate existing users
+        legacy_username = f"{prefix}_{external_user_id[:8]}"
+        logger.info(f"[External Auth] Primary user not found. Checking legacy fallback: {legacy_username}")
+        user = await get_user_by_username(db, legacy_username)
+        if user:
+            logger.info(f"[External Auth] Found legacy user {legacy_username}. Migrating to {lookup_username}...")
+            user.username = lookup_username
+            try:
+                await db.commit()
+                await db.refresh(user)
+                logger.info(f"[External Auth] Successfully auto-migrated user {user.id} to {lookup_username}")
+                return user
+            except Exception as e:
+                logger.error(f"[External Auth] Failed to save migration for {legacy_username}: {e!s}")
+                await db.rollback()
+                # Continue and create a new user if migration fails
+                user = None
+        else:
+            logger.debug(f"[External Auth] No legacy user found for {legacy_username}")
 
     if user:
         logger.debug(f"Found existing external user: {lookup_username}")

@@ -83,11 +83,49 @@ class ComposioToolsComponent(Component):
         return headers
 
     def _get_user_id(self) -> str | None:
-        """Helper to safely get user_id from the component context."""
+        """Helper to safely get user_id from the component context.
+        
+        Resolves the real Suna Account ID from the username if it's an external user.
+        """
+        # Check cache first to avoid redundant DB hits
+        if hasattr(self, "_resolved_user_id") and self._resolved_user_id:
+            return self._resolved_user_id
+
         try:
-            # self.user_id is available in CustomComponent base class
             if hasattr(self, "user_id") and self.user_id:
+                # 1. Try to resolve the Suna Account ID from the username in DB
+                resolved = self._resolve_user_id_from_db()
+                if resolved:
+                    self._resolved_user_id = resolved
+                    return resolved
+                
+                # 2. Fallback to standard Langflow user_id
                 return str(self.user_id)
+        except Exception:
+            pass
+        return None
+
+    def _resolve_user_id_from_db(self) -> str | None:
+        """Fetch the username from the database and extract the Suna ID if prefixed."""
+        try:
+            from lfx.services.deps import session_scope
+            from langflow.services.database.models.user.crud import get_user_by_id
+            from lfx.utils.async_helpers import run_until_complete
+            import uuid
+
+            user_uuid = self.user_id
+            if isinstance(user_uuid, str):
+                user_uuid = uuid.UUID(user_uuid)
+            
+            async def get_username():
+                async with session_scope() as session:
+                    user = await get_user_by_id(session, user_uuid)
+                    return user.username if user else None
+            
+            username = run_until_complete(get_username())
+            if username and username.startswith("suna_"):
+                resolved_id = username.replace("suna_", "")
+                return resolved_id
         except Exception:
             pass
         return None
